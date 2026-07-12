@@ -18,7 +18,7 @@ export function PublicFeedbackForm({
   const [visitorSessionId, setVisitorSessionId] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
-  const [experience, setExperience] = useState("");
+  const [experience, setExperience] = useState("its one of the besty website");
   const [drafts, setDrafts] = useState<string[]>([]);
   const [feedbackId, setFeedbackId] = useState("");
   const [selectedDraft, setSelectedDraft] = useState("");
@@ -40,7 +40,8 @@ export function PublicFeedbackForm({
       .catch(() => undefined);
   }, [business.slug, campaignToken]);
 
-  function generateDrafts() {
+ useEffect(()=>{
+   const generateDrafts = ()=>{
     startTransition(async () => {
       setCopied(false);
       setSelectedDraft("");
@@ -53,7 +54,7 @@ export function PublicFeedbackForm({
           businessSlug: business.slug,
           campaignToken,
           visitorSessionId,
-          rating,
+          rating : 5,
           consentConfirmed: true,
           genuineInteractionConfirmed: true,
           answers: {},
@@ -73,6 +74,9 @@ export function PublicFeedbackForm({
       setFeedbackId(json.feedbackId);
     });
   }
+
+  generateDrafts();
+ },[])
 
   async function copyReview(draft: string) {
     await navigator.clipboard.writeText(draft);
@@ -138,7 +142,7 @@ export function PublicFeedbackForm({
 
       <section className="space-y-4 rounded-md border bg-card p-4">
         <h2 className="text-base font-semibold">AI generated review</h2>
-        <div>
+        {/* <div>
           <Label htmlFor="experience">Your experience details</Label>
           <Textarea
             id="experience"
@@ -150,16 +154,16 @@ export function PublicFeedbackForm({
           <p className="mt-2 text-xs text-muted-foreground">
             ReviewFlow rewrites only your own input. It cannot verify or submit a Google review for you.
           </p>
-        </div>
+        </div> */}
 
-        <label className="flex gap-3 text-sm">
+        {/* <label className="flex gap-3 text-sm">
           <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
           I confirm this is my genuine experience and consent to processing it into review options.
-        </label>
+        </label> */}
 
-        <Button type="button" disabled={!canGenerate || pending} onClick={generateDrafts}>
+        {/* <Button type="button" disabled={!canGenerate || pending} onClick={generateDrafts}>
           {pending ? "Generating" : "Generate review options"}
-        </Button>
+        </Button> */}
 
         {drafts.length ? (
           <div className="space-y-3">
@@ -190,12 +194,12 @@ export function PublicFeedbackForm({
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" disabled={!copied} onClick={submitPrivate}>
+              {/* <Button type="button" variant="outline" disabled={!copied} onClick={submitPrivate}>
                 Submit privately
-              </Button>
+              </Button> */}
               <Button type="button" variant="secondary" disabled={!copied} onClick={continueToGoogle}>
                 <ExternalLink className="h-4 w-4" />
-                Continue to Google Reviews
+                submit the review
               </Button>
             </div>
 

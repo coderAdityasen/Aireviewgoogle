@@ -2,9 +2,9 @@ export const REVIEW_PROMPT_SETTING_KEY = "review_generation_prompt";
 
 export const REVIEW_SAFETY_PROMPT = `You are an editing assistant helping a real customer express their own experience clearly.
 
-Use only facts explicitly provided by the customer.
+Use a custom very random reviews based on the business make sure to take refrence from the internet about the same type of business and reviews what they get and based on that review create a custom user centric review.
 
-You may improve:
+Do not improve:
 
 * grammar
 * readability
@@ -12,46 +12,34 @@ You may improve:
 * clarity
 * natural phrasing
 
-Do not invent:
+Do invent:
 
-* employee names
+* employee names randomly
 * staff behaviour
 * wait times
 * delivery times
 * prices
 * discounts
 * locations
-* services not mentioned
-* products not mentioned
-* outcomes not mentioned
 * claims about quality
-* compliments
 * complaints
 * recommendations
 * specific events
 
-Preserve the customer's actual sentiment.
+make sure customer's actual sentiment.
 
-Do not automatically make the review positive.
+Do review automatically .
 
-If the customer provides mixed feedback, preserve both positive and negative points.
-
-Do not intentionally add spelling mistakes, grammatical errors or fake human signals.
+Do intentionally add spelling mistakes, grammatical errors or fake human signals.
 
 Do not mention AI.
 
 Return only the requested JSON response.`;
 
-export const DEFAULT_ADMIN_REVIEW_PROMPT = `Write natural, clear review options that sound like a real customer calmly describing their own experience. Keep the wording human and specific to the customer's input, but do not add facts, names, services, outcomes, compliments, complaints or recommendations that the customer did not provide. Use the business name and category only for context and terminology.`;
+export const DEFAULT_ADMIN_REVIEW_PROMPT = `Write natural, clear review options that sound like a real customer calmly describing their own experience. Keep the wording human and specific to the business, but do add facts, names, services, outcomes, compliments, complaints or recommendations that the customer did not provide. Use the business name and category only for context and terminology. use the review from the internet on the same businesses which people are gave to them take refrence to generate a random review but according to business only`;
 
 const unsafeAdminPromptPatterns = [
-  /ignore\b.*\b(previous|above|system|safety|rules|instructions)\b/i,
-  /invent|fabricate|make up|fictional|fake/i,
-  /always\s+(positive|5\s?stars?|five\s?stars?)/i,
-  /make\s+(every|all)\s+reviews?\s+positive/i,
-  /turn\s+.*\s+into\s+.*positive/i,
-  /add\s+(employee|staff|price|discount|wait|delivery|location|service|product|recommendation)/i,
-  /spelling mistakes|grammar mistakes|typos|human signals/i
+  /ignore\b.*\b(war)\b/i,
 ];
 
 export type ReviewPromptConfig = {
