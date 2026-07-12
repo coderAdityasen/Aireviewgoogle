@@ -1,5 +1,5 @@
 const GOOGLE_HOST_RE = /(^|\.)google\.(com|[a-z]{2}|com\.[a-z]{2}|co\.[a-z]{2})$/i;
-const GOOGLE_MAPS_HOSTS = new Set(["maps.app.goo.gl", "g.page", "maps.google.com", "www.google.com", "google.com"]);
+const GOOGLE_MAPS_HOSTS = new Set(["maps.app.goo.gl", "g.page", "maps.google.com", "www.google.com", "google.com", "share.google"]);
 
 export function normalizeGoogleReviewUrl(input: string) {
   const trimmed = input.trim();
@@ -28,7 +28,8 @@ export function normalizeGoogleReviewUrl(input: string) {
     path.startsWith("/search") ||
     path.includes("/review") ||
     host === "maps.app.goo.gl" ||
-    host === "g.page";
+    host === "g.page" ||
+    host === "share.google";
 
   if (!isGoogleHost || !isAllowedGooglePath) {
     throw new Error("Only official Google review, Google Maps or Google Business Profile URLs are supported.");

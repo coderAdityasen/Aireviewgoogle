@@ -8,6 +8,7 @@ describe("Google review URL validation", () => {
       "https://search.google.com/local/writereview"
     );
     expect(normalizeGoogleReviewUrl("https://maps.app.goo.gl/example")).toBe("https://maps.app.goo.gl/example");
+    expect(normalizeGoogleReviewUrl("https://share.google/awiergy23dv")).toBe("https://share.google/awiergy23dv");
   });
 
   it("rejects unsafe or unrelated destinations", () => {
