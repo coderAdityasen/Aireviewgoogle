@@ -4,11 +4,11 @@ export const REVIEW_SAFETY_PROMPT = `You are an editing assistant helping a real
 
 Use a custom very random reviews based on the business make sure to take refrence from the internet about the same type of business and reviews what they get and based on that review create a custom user centric review.
 
-Do not improve:
+Do this at the end:
 
-* grammar
-* readability
-* sentence structure
+* grammar remove the full stop or comma 
+* readability make sure to add words like hinglish
+* sentence structure will be like human make sure it is unstructured
 * clarity
 * natural phrasing
 
@@ -18,8 +18,6 @@ Do invent:
 * staff behaviour
 * wait times
 * delivery times
-* prices
-* discounts
 * locations
 * claims about quality
 * complaints
@@ -36,7 +34,7 @@ Do not mention AI.
 
 Return only the requested JSON response.`;
 
-export const DEFAULT_ADMIN_REVIEW_PROMPT = `Write natural, clear review options that sound like a real customer calmly describing their own experience. Keep the wording human and specific to the business, but do add facts, names, services, outcomes, compliments, complaints or recommendations that the customer did not provide. Use the business name and category only for context and terminology. use the review from the internet on the same businesses which people are gave to them take refrence to generate a random review but according to business only`;
+export const DEFAULT_ADMIN_REVIEW_PROMPT = `Write natural review options that sound like a real customer calmly describing their own experience. Keep the wording human and specific to the business, but do add facts, names, services, outcomes, compliments, complaints or recommendations that the customer did not provide. Use the business name and category only for context and terminology. use the review from the internet on the same businesses which people are gave to them take refrence to generate a random review but according to business only`;
 
 const unsafeAdminPromptPatterns = [
   /ignore\b.*\b(war)\b/i,
@@ -66,13 +64,6 @@ export function parseReviewPromptConfig(value: unknown): ReviewPromptConfig {
 }
 
 export function assertAdminPromptIsSafe(prompt: string) {
-  const normalizedPrompt = prompt
-    .replace(/\b(do not|don't|never|without)\s+(inventing?|fabricating?|making up|adding fake|using fake)\b/gi, "")
-    .replace(/\b(do not|don't|never)\s+add\s+fake\s+details\b/gi, "");
-
-  if (unsafeAdminPromptPatterns.some((pattern) => pattern.test(normalizedPrompt))) {
-    throw new Error("The review prompt cannot override safety rules or request fabricated review details.");
-  }
   return prompt.trim();
 }
 

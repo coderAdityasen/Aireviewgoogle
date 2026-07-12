@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Copy, ExternalLink, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { Business } from "@/types/database";
 
@@ -23,7 +24,7 @@ export function PublicFeedbackForm({
   const [feedbackId, setFeedbackId] = useState("");
   const [selectedDraft, setSelectedDraft] = useState("");
   const [copied, setCopied] = useState(false);
-  const [pending, startTransition] = useTransition();
+  const [generating, setGenerating] = useState(false);
 
   const canGenerate = useMemo(() => {
     return confirmed && rating !== null && experience.trim().length >= 15;
@@ -41,42 +42,52 @@ export function PublicFeedbackForm({
   }, [business.slug, campaignToken]);
 
  useEffect(()=>{
+  if(rating == null) return;
+
+  const selectedRating = rating;
    const generateDrafts = ()=>{
-    startTransition(async () => {
+    const run = async () => {
       setCopied(false);
       setSelectedDraft("");
       setDrafts([]);
+      setGenerating(true);
 
-      const response = await fetch("/api/ai/review-draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          businessSlug: business.slug,
-          campaignToken,
-          visitorSessionId,
-          rating : 5,
-          consentConfirmed: true,
-          genuineInteractionConfirmed: true,
-          answers: {},
-          originalNotes: experience,
-          preferredLanguage: business.default_language ?? "en",
-          reviewLength: "standard"
-        })
-      });
-      const json = await response.json();
-      if (!response.ok) {
-        toast.error(json.error ?? "Unable to generate safe review options.");
-        return;
+      try {
+        const response = await fetch("/api/ai/review-draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessSlug: business.slug,
+            campaignToken,
+            visitorSessionId,
+            rating: selectedRating,
+            consentConfirmed: true,
+            genuineInteractionConfirmed: true,
+            answers: {},
+            originalNotes: experience,
+            preferredLanguage: business.default_language ?? "en",
+            reviewLength: "standard"
+          })
+        });
+        const json = await response.json();
+        if (!response.ok) {
+          toast.error(json.error ?? "Unable to generate safe review options.");
+          return;
+        }
+
+        const generatedDrafts = Array.isArray(json.drafts) ? json.drafts : json.draft ? [json.draft] : [];
+        setDrafts(generatedDrafts);
+        setFeedbackId(json.feedbackId);
+      } finally {
+        setGenerating(false);
       }
+    };
 
-      const generatedDrafts = Array.isArray(json.drafts) ? json.drafts : json.draft ? [json.draft] : [];
-      setDrafts(generatedDrafts);
-      setFeedbackId(json.feedbackId);
-    });
+    void run();
   }
 
   generateDrafts();
- },[])
+ },[rating])
 
   async function copyReview(draft: string) {
     await navigator.clipboard.writeText(draft);
@@ -140,6 +151,7 @@ export function PublicFeedbackForm({
         </div>
       </section>
 
+      {rating !== null ? (
       <section className="space-y-4 rounded-md border bg-card p-4">
         <h2 className="text-base font-semibold">AI generated review</h2>
         {/* <div>
@@ -165,7 +177,29 @@ export function PublicFeedbackForm({
           {pending ? "Generating" : "Generate review options"}
         </Button> */}
 
-        {drafts.length ? (
+        {generating ? (
+          <div className="space-y-3" aria-label="Generating review options">
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-44" />
+              <Skeleton className="h-4 w-72 max-w-full" />
+            </div>
+            <div className="grid gap-3">
+              {[1, 2, 3].map((option) => (
+                <div key={option} className="rounded-md border bg-background p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-4 w-4" />
+                  </div>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-11/12" />
+                    <Skeleton className="h-4 w-3/4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : drafts.length ? (
           <div className="space-y-3">
             <div>
               <h2 className="text-base font-semibold">Choose a review to copy</h2>
@@ -212,6 +246,7 @@ export function PublicFeedbackForm({
           </div>
         ) : null}
       </section>
+      ) : null}
     </div>
   );
 }

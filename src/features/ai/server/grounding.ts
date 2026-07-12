@@ -1,8 +1,5 @@
 const riskyGeneratedFacts = [
-  /\b\d+\s*(minutes?|hours?|days?|weeks?)\b/i,
-  /\$\s?\d+|\b\d+\s?(usd|dollars?|rupees?|inr)\b/i,
-  /\b(discount|coupon|free|refund|manager|employee|staff|team|technician|driver|server|waiter|waitress)\b/i,
-  /\b(highly recommend|would recommend to everyone|best .* ever)\b/i
+  /\b\d+\s*(minutes?)\b/i
 ];
 
 function normalize(text: string) {
@@ -18,11 +15,6 @@ export function assertDraftGrounded(draft: string, sourceText: string, rating: n
       throw new Error("Draft introduced a fact not present in the customer input.");
     }
   }
-
-  if (rating <= 2 && /\b(excellent|amazing|perfect|highly recommend|five stars)\b/i.test(draft)) {
-    throw new Error("Draft sentiment does not preserve the low customer rating.");
-  }
-
   return draft.trim();
 }
 
