@@ -1,0 +1,67 @@
+"use client";
+
+import { useActionState } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { signInAction, signUpAction, resetPasswordAction } from "@/features/auth/server/actions";
+
+type Mode = "login" | "signup" | "forgot";
+
+const actions = {
+  login: signInAction,
+  signup: signUpAction,
+  forgot: resetPasswordAction
+};
+
+export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
+  const [state, formAction, pending] = useActionState(actions[mode], { ok: false, message: "" });
+
+  return (
+    <form action={formAction} className="space-y-4">
+      {next ? <input type="hidden" name="next" value={next} /> : null}
+      {mode === "signup" ? (
+        <div className="space-y-2">
+          <Label htmlFor="fullName">Full name</Label>
+          <Input id="fullName" name="fullName" autoComplete="name" required />
+        </div>
+      ) : null}
+      <div className="space-y-2">
+        <Label htmlFor="email">Email</Label>
+        <Input id="email" name="email" type="email" autoComplete="email" required />
+      </div>
+      {mode !== "forgot" ? (
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input id="password" name="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required />
+        </div>
+      ) : null}
+      {state.message ? (
+        <p className={state.ok ? "text-sm text-primary" : "text-sm text-destructive"} aria-live="polite">
+          {state.message}
+        </p>
+      ) : null}
+      <Button className="w-full" disabled={pending}>
+        {pending ? "Please wait" : mode === "login" ? "Log in" : mode === "signup" ? "Create account" : "Send reset link"}
+      </Button>
+      <div className="text-center text-sm text-muted-foreground">
+        {mode === "login" ? (
+          <>
+            <Link className="underline" href="/forgot-password">
+              Forgot password
+            </Link>{" "}
+            ·{" "}
+            <Link className="underline" href="/signup">
+              Create account
+            </Link>
+          </>
+        ) : (
+          <Link className="underline" href="/login">
+            Back to login
+          </Link>
+        )}
+      </div>
+    </form>
+  );
+}

@@ -1,0 +1,160 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { requireAdmin } from "@/lib/auth/roles";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizeGoogleReviewUrl } from "@/lib/security/google-url";
+import { REVIEW_PROMPT_SETTING_KEY, assertAdminPromptIsSafe } from "@/features/ai/server/prompt";
+
+const statusSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(["active", "suspended"])
+});
+
+export async function setOwnerStatusAction(formData: FormData) {
+  const { user } = await requireAdmin();
+  const parsed = statusSchema.parse({ id: formData.get("id"), status: formData.get("status") });
+  const admin = createAdminClient();
+  const { error } = await admin.from("profiles").update({ account_status: parsed.status }).eq("id", parsed.id);
+  if (error) throw error;
+  await admin.from("audit_logs").insert({
+    actor_id: user.id,
+    action: `owner.${parsed.status}`,
+    entity_type: "profile",
+    entity_id: parsed.id
+  });
+  revalidatePath("/admin/owners");
+}
+
+export async function setBusinessActiveAction(formData: FormData) {
+  const { user } = await requireAdmin();
+  const parsed = z.object({ id: z.string().uuid(), isActive: z.enum(["true", "false"]) }).parse({
+    id: formData.get("id"),
+    isActive: formData.get("isActive")
+  });
+  const admin = createAdminClient();
+  const { error } = await admin.from("businesses").update({ is_active: parsed.isActive === "true" }).eq("id", parsed.id);
+  if (error) throw error;
+  await admin.from("audit_logs").insert({
+    actor_id: user.id,
+    action: parsed.isActive === "true" ? "business.activated" : "business.disabled",
+    entity_type: "business",
+    entity_id: parsed.id
+  });
+  revalidatePath("/admin/businesses");
+}
+
+export async function updateBusinessAdminAction(formData: FormData) {
+  const { user } = await requireAdmin();
+  const parsed = z
+    .object({
+      id: z.string().uuid(),
+      name: z.string().min(2).max(160),
+      category: z.string().min(2).max(80),
+      googleReviewUrl: z.string().transform((value) => normalizeGoogleReviewUrl(value)),
+      phone: z.string().max(40).optional().default(""),
+      website: z.string().url().optional().or(z.literal("")).default("")
+    })
+    .parse({
+      id: formData.get("id"),
+      name: formData.get("name"),
+      category: formData.get("category"),
+      googleReviewUrl: formData.get("googleReviewUrl"),
+      phone: formData.get("phone"),
+      website: formData.get("website")
+    });
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("businesses")
+    .update({
+      name: parsed.name,
+      category: parsed.category,
+      google_review_url: parsed.googleReviewUrl,
+      phone: parsed.phone || null,
+      website: parsed.website || null
+    })
+    .eq("id", parsed.id);
+  if (error) throw error;
+  await admin.from("audit_logs").insert({
+    actor_id: user.id,
+    action: "business.admin_updated",
+    entity_type: "business",
+    entity_id: parsed.id
+  });
+  revalidatePath("/admin/businesses");
+}
+
+export async function deleteBusinessAdminAction(formData: FormData) {
+  const { user } = await requireAdmin();
+  const parsed = z.object({ id: z.string().uuid(), confirmation: z.literal("DELETE") }).parse({
+    id: formData.get("id"),
+    confirmation: formData.get("confirmation")
+  });
+  const admin = createAdminClient();
+  const { error } = await admin.from("businesses").delete().eq("id", parsed.id);
+  if (error) throw error;
+  await admin.from("audit_logs").insert({
+    actor_id: user.id,
+    action: "business.admin_deleted",
+    entity_type: "business",
+    entity_id: parsed.id
+  });
+  revalidatePath("/admin/businesses");
+}
+
+export async function updatePlatformSettingAction(formData: FormData) {
+  const { user } = await requireAdmin();
+  const parsed = z.object({ key: z.string().min(2), value: z.string().min(2) }).parse({
+    key: formData.get("key"),
+    value: formData.get("value")
+  });
+  const settingValue = JSON.parse(parsed.value) as Record<string, unknown>;
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("platform_settings")
+    .upsert({ setting_key: parsed.key, setting_value: settingValue as never, updated_by: user.id }, { onConflict: "setting_key" });
+  if (error) throw error;
+  await admin.from("audit_logs").insert({
+    actor_id: user.id,
+    action: "platform_settings.updated",
+    entity_type: "platform_settings",
+    metadata: { key: parsed.key }
+  });
+  revalidatePath("/admin/settings");
+}
+
+export async function updateReviewPromptSettingAction(formData: FormData) {
+  const { user } = await requireAdmin();
+  const parsed = z
+    .object({
+      prompt: z.string().min(80).max(5000).transform((value) => assertAdminPromptIsSafe(value)),
+      optionsCount: z.coerce.number().int().min(2).max(3)
+    })
+    .parse({
+      prompt: formData.get("prompt"),
+      optionsCount: formData.get("optionsCount")
+    });
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("platform_settings").upsert(
+    {
+      setting_key: REVIEW_PROMPT_SETTING_KEY,
+      setting_value: {
+        prompt: parsed.prompt,
+        optionsCount: parsed.optionsCount
+      },
+      updated_by: user.id
+    },
+    { onConflict: "setting_key" }
+  );
+  if (error) throw error;
+
+  await admin.from("audit_logs").insert({
+    actor_id: user.id,
+    action: "platform_settings.review_prompt_updated",
+    entity_type: "platform_settings",
+    metadata: { key: REVIEW_PROMPT_SETTING_KEY, optionsCount: parsed.optionsCount }
+  });
+  revalidatePath("/admin/settings");
+}
