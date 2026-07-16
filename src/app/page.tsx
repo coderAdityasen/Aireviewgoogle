@@ -1,47 +1,9 @@
 import Link from "next/link";
 import { MarketingHeader } from "@/components/layout/marketing-header";
 import { Button } from "@/components/ui/button";
-import { Icon } from "@/components/ui/icon";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PLANS } from "@/config/plans";
 
 export default function HomePage() {
-  return (
-    <>
-      <MarketingHeader />
-      <main>
-        <section className="mx-auto grid min-h-[calc(100vh-73px)] max-w-6xl items-center gap-10 px-4 py-16 lg:grid-cols-[1.1fr_0.9fr]">
-          <div>
-            <h1 className="max-w-3xl text-4xl font-semibold tracking-normal sm:text-5xl">
-              ReviewFlow
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-muted-foreground">
-              QR-powered customer feedback that helps real customers write clearer reviews from their own experience,
-              then opens your official Google review page.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg">
-                <Link href="/signup">Start collecting feedback</Link>
-              </Button>
-              <Button asChild size="lg" variant="outline">
-                <Link href="/pricing">View pricing</Link>
-              </Button>
-            </div>
-          </div>
-          <div className="rounded-md border bg-card p-6 shadow-sm">
-            <div className="grid gap-4">
-              {[
-                ["qr", "Campaign QR codes route through your app for analytics before Google opens."],
-                ["check", "AI rewrites only the customer’s own notes and preserves mixed or negative sentiment."],
-                ["shield", "Owner, admin and public data paths are separated with Supabase RLS and server guards."]
-              ].map(([icon, text]) => (
-                <div key={text as string} className="flex gap-3 rounded-md border p-4">
-                  <Icon name={icon as "qr" | "check" | "shield"} className="h-5 w-5 shrink-0 text-primary" />
-                  <p className="text-sm text-muted-foreground">{text as string}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      </main>
-    </>
-  );
+  return <><MarketingHeader /><main><section className="bg-[#0b1730] px-4 py-20 text-white sm:py-28"><div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.08fr_0.92fr]"><div><p className="text-sm font-medium uppercase tracking-[0.2em] text-[#66b7ff]">ReviewFlow for growing local businesses</p><h1 className="mt-5 max-w-3xl text-5xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">Make it easier for customers to share what really happened.</h1><p className="mt-6 max-w-2xl text-lg leading-8 text-white/70">A branded QR experience that captures feedback, helps customers shape their own words and opens your official Google review page when they choose to continue.</p><div className="mt-8 flex flex-wrap gap-3"><Button asChild size="lg"><Link href="/pricing">See paid plans</Link></Button><Button asChild variant="outline" size="lg" className="border-white/20 bg-white/5 text-white hover:bg-white/10"><Link href="#how-it-works">How it works</Link></Button></div></div><div className="rounded-3xl border border-white/10 bg-white/10 p-5 shadow-2xl"><div className="rounded-2xl bg-white p-5 text-slate-950"><div className="flex items-center justify-between"><span className="text-sm font-semibold">Customer flow preview</span><span className="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">Mobile first</span></div><div className="mt-6 rounded-xl border p-4"><p className="text-sm font-medium">How was your experience?</p><div className="mt-4 flex gap-2 text-2xl text-amber-500">★ ★ ★ ★ ☆</div><p className="mt-5 text-sm text-slate-500">Customers describe the experience in their own words before choosing what to do next.</p></div><div className="mt-3 rounded-xl bg-blue-600 p-4 text-sm font-medium text-white">Open Google review page</div></div></div></div></section><section id="how-it-works" className="mx-auto max-w-6xl px-4 py-20"><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">A clear path</p><h2 className="mt-3 text-3xl font-semibold">From table tent to thoughtful feedback</h2><div className="mt-10 grid gap-4 md:grid-cols-3">{[["01", "Create a campaign", "Set up a location, validate its official Google destination and create a named QR campaign."], ["02", "Let customers lead", "Customers confirm the experience, select a rating and add the details they want reflected."], ["03", "Open Google by choice", "They can edit, copy, write their own or send private feedback. Google is never auto-posted."]].map(([number, title, copy]) => <Card key={number}><CardHeader><p className="text-sm font-semibold text-primary">{number}</p><CardTitle>{title}</CardTitle></CardHeader><CardContent><p className="text-sm leading-6 text-muted-foreground">{copy}</p></CardContent></Card>)}</div></section><section className="border-y bg-slate-50 px-4 py-20"><div className="mx-auto max-w-6xl"><div className="max-w-2xl"><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Built for trust</p><h2 className="mt-3 text-3xl font-semibold">Useful signals without pretending to know more than you do</h2></div><div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">{["Grounded AI drafts", "Private follow-up inbox", "QR and campaign analytics", "Razorpay subscription controls"].map((feature) => <div key={feature} className="rounded-2xl border bg-card p-5"><p className="font-medium">{feature}</p><p className="mt-2 text-sm text-muted-foreground">Designed around explicit customer input and server-verified owner access.</p></div>)}</div></div></section><section className="mx-auto max-w-6xl px-4 py-20"><div className="flex flex-wrap items-end justify-between gap-5"><div><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Paid plans</p><h2 className="mt-3 text-3xl font-semibold">Start with the locations you have</h2></div><Button asChild variant="outline"><Link href="/pricing">Compare all plans</Link></Button></div><div className="mt-8 grid gap-4 md:grid-cols-3">{Object.values(PLANS).map((plan) => <Card key={plan.key}><CardHeader><CardTitle>{plan.name}</CardTitle><p className="pt-2 text-2xl font-semibold">₹{plan.priceInr.toLocaleString("en-IN")}<span className="text-sm font-normal text-muted-foreground">/month</span></p></CardHeader><CardContent><p className="text-sm text-muted-foreground">{plan.businesses} location{plan.businesses === 1 ? "" : "s"} and {plan.qrCampaigns} QR campaigns.</p></CardContent></Card>)}</div></section><section className="bg-blue-50 px-4 py-20"><div className="mx-auto max-w-3xl"><h2 className="text-3xl font-semibold">Questions business owners ask</h2><div className="mt-8 space-y-5">{[["Does ReviewFlow post to Google?", "No. It can generate grounded text, copy it and open the official page. The customer chooses the rating and submits directly."], ["Can a low rating still reach Google?", "Yes. Low ratings can also be shared privately, but the Google option remains available and equally visible."], ["What happens if billing stops?", "Product features and public QR pages are locked when access expires. Businesses, feedback and analytics are preserved."]].map(([question, answer]) => <details key={question} className="rounded-xl border bg-card p-4"><summary className="cursor-pointer font-medium">{question}</summary><p className="mt-3 text-sm leading-6 text-muted-foreground">{answer}</p></details>)}</div></div></section><section className="mx-auto max-w-6xl px-4 py-20 text-center"><h2 className="text-3xl font-semibold">Give your team a reliable next step after every customer interaction</h2><p className="mx-auto mt-4 max-w-2xl text-muted-foreground">Choose a plan, build your first flow and test it before sharing a QR code.</p><Button asChild size="lg" className="mt-7"><Link href="/pricing">Choose a paid plan</Link></Button></section></main><footer className="border-t px-4 py-8"><div className="mx-auto flex max-w-6xl flex-wrap justify-between gap-4 text-sm text-muted-foreground"><p>© 2026 ReviewFlow</p><div className="flex gap-4"><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/acceptable-use">Acceptable use</Link></div></div></footer></>;
 }

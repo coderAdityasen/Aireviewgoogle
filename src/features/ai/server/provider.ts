@@ -76,6 +76,7 @@ export async function generateReviewDraft(input: ReviewGenerationInput) {
         temperature: 0.2,
         max_tokens: 900,
         response_format: { type: "json_object" },
+        ...(process.env.OPENROUTER_DATA_COLLECTION === "deny" ? { provider: { data_collection: "deny" } } : {}),
         messages: [
           { role: "system", content: REVIEW_SAFETY_PROMPT },
           {
@@ -183,7 +184,8 @@ function getAiProviderConfig() {
     (usesOpenRouter
       ? "https://openrouter.ai/api/v1/chat/completions"
       : process.env.AI_PROVIDER_BASE_URL ?? "https://api.openai.com/v1/chat/completions");
-  const model = process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? (usesOpenRouter ? "openai/gpt-4.1-mini" : "gpt-4.1-mini");
+  const model = process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? "";
+  if (apiKey && !model) throw new Error("OPENROUTER_MODEL is required when an AI provider key is configured.");
   const extraHeaders: Record<string, string> = {};
 
   if (usesOpenRouter) {

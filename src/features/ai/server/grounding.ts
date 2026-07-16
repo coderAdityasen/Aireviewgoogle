@@ -1,6 +1,7 @@
 const riskyGeneratedFacts = [
-  /\b\d+\s*(minutes?)\b/i
+  /(?:\$\s*\d+|\b\d+\s*(minutes?|hours?|days?|percent|%|rupees?|inr|dollars?))\b/i
 ];
+const positiveClaims = /\b(excellent|amazing|wonderful|fantastic|highly recommend|loved|perfect)\b/i;
 
 function normalize(text: string) {
   return text.toLowerCase().replace(/[^a-z0-9\s]/g, " ");
@@ -8,6 +9,10 @@ function normalize(text: string) {
 
 export function assertDraftGrounded(draft: string, sourceText: string, rating: number) {
   const normalizedSource = normalize(sourceText);
+
+  if (rating <= 2 && positiveClaims.test(draft) && !positiveClaims.test(sourceText)) {
+    throw new Error("Draft did not preserve the customer's low rating sentiment.");
+  }
 
   for (const pattern of riskyGeneratedFacts) {
     const match = draft.match(pattern);

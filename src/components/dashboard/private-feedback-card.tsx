@@ -1,0 +1,2 @@
+import { StatusBadge } from "@/components/dashboard/status-badge";
+export function PrivateFeedbackCard({ rating, notes, status, customer }: { rating: number; notes: string | null; status: string; customer?: string | null }) { return <article className="rounded-xl border bg-card p-4"><div className="flex items-center justify-between gap-3"><p className="font-medium">{rating}/5 {customer ? `· ${customer}` : ""}</p><StatusBadge status={status} /></div><p className="mt-3 text-sm text-muted-foreground">{notes || "No issue details provided."}</p></article>; }

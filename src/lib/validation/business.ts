@@ -17,7 +17,12 @@ export const businessSchema = z.object({
   logoUrl: z.string().url().optional().or(z.literal("")).default(""),
   brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default("#0f766e"),
   googleReviewUrl: z.string().transform((value) => normalizeGoogleReviewUrl(value)),
-  defaultLanguage: z.string().min(2).max(12).default("en")
+  defaultLanguage: z.string().min(2).max(12).default("en"),
+  experienceTags: z.string().max(1000).optional().default(""),
+  lowRatingSupportMessage: z.string().max(400).optional().default(""),
+  contactFields: z.string().max(200).optional().default("name,email"),
+  posterHeadline: z.string().max(160).optional().default(""),
+  posterTemplate: z.enum(["light", "dark"]).default("light")
 });
 
 export const qrCampaignSchema = z.object({

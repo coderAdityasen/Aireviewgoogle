@@ -27,6 +27,16 @@ export async function setOwnerStatusAction(formData: FormData) {
   revalidatePath("/admin/owners");
 }
 
+export async function grantEntitlementOverrideAction(formData: FormData) {
+  const { user } = await requireAdmin();
+  const parsed = z.object({ ownerId: z.string().uuid(), planKey: z.enum(["starter", "growth", "pro"]), reason: z.string().min(3).max(500), expiresAt: z.string().optional() }).parse({ ownerId: formData.get("ownerId"), planKey: formData.get("planKey"), reason: formData.get("reason"), expiresAt: formData.get("expiresAt") || undefined });
+  const admin = createAdminClient();
+  const { data, error } = await admin.from("entitlement_overrides").insert({ owner_id: parsed.ownerId, granted_by: user.id, plan_key: parsed.planKey, reason: parsed.reason, expires_at: parsed.expiresAt ? new Date(parsed.expiresAt).toISOString() : null }).select("id").single();
+  if (error) throw error;
+  await admin.from("audit_logs").insert({ actor_id: user.id, action: "entitlement.override_granted", entity_type: "entitlement_override", entity_id: data.id, metadata: { owner_id: parsed.ownerId, plan_key: parsed.planKey, reason: parsed.reason, expires_at: parsed.expiresAt ?? null } });
+  revalidatePath("/admin/owners");
+}
+
 export async function setBusinessActiveAction(formData: FormData) {
   const { user } = await requireAdmin();
   const parsed = z.object({ id: z.string().uuid(), isActive: z.enum(["true", "false"]) }).parse({

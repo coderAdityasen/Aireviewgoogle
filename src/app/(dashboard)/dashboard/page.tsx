@@ -6,9 +6,13 @@ import { EmptyState } from "@/components/layout/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { getCurrentUser } from "@/lib/auth/roles";
+import { getOwnerEntitlements } from "@/lib/billing/entitlements";
 
 export default async function DashboardPage() {
   const metrics = await getOwnerDashboardMetrics();
+  const user = await getCurrentUser();
+  const entitlements = user ? await getOwnerEntitlements(user.id) : null;
   const active = metrics.businesses.filter((business) => business.is_active).length;
 
   if (!metrics.businesses.length) {
@@ -29,6 +33,7 @@ export default async function DashboardPage() {
         <MetricCard label="Unique visitors" value={metrics.uniqueVisitors} />
         <MetricCard label="Opened Google review page" value={`${metrics.conversion}%`} hint="Scan-to-Google redirect conversion" />
       </div>
+      {entitlements ? <Card><CardHeader className="flex-row items-center justify-between"><div><CardTitle>Plan usage</CardTitle><p className="mt-1 text-sm text-muted-foreground">{entitlements.plan.name} plan · reset with your billing period</p></div><Button asChild variant="outline" size="sm"><Link href="/billing">Manage plan</Link></Button></CardHeader><CardContent className="grid gap-4 sm:grid-cols-3"><Usage label="Locations" value={entitlements.usage.businesses} limit={entitlements.plan.businesses} /><Usage label="QR campaigns" value={entitlements.usage.qrCampaigns} limit={entitlements.plan.qrCampaigns} /><Usage label="AI drafts" value={entitlements.usage.aiGenerations} limit={entitlements.plan.aiGenerations} /></CardContent></Card> : null}
       <Card>
         <CardHeader>
           <CardTitle>Daily activity</CardTitle>
@@ -61,3 +66,5 @@ export default async function DashboardPage() {
     </div>
   );
 }
+
+function Usage({ label, value, limit }: { label: string; value: number; limit: number }) { const width = Math.min(100, Math.round((value / limit) * 100)); return <div><div className="flex justify-between text-sm"><span>{label}</span><span className="text-muted-foreground">{value}/{limit}</span></div><div className="mt-2 h-2 rounded-full bg-muted"><div className="h-2 rounded-full bg-primary" style={{ width: `${width}%` }} /></div>{width >= 80 ? <Link className="mt-2 block text-xs text-primary underline" href="/pricing">You are near the limit — compare plans</Link> : null}</div>; }

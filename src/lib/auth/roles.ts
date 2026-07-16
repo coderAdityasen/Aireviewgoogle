@@ -40,6 +40,11 @@ export async function requireActiveOwner() {
     redirect("/login?suspended=1");
   }
 
+  if (profile.role !== "admin") {
+    const { hasPaidAccess } = await import("@/lib/billing/entitlements");
+    if (!(await hasPaidAccess(user.id))) redirect("/billing?required=1");
+  }
+
   return { user, profile };
 }
 

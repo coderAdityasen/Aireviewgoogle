@@ -41,7 +41,9 @@ export async function getAdminOwners() {
   if (error) throw error;
   const { data: authUsers } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
   const emailById = new Map(authUsers.users.map((user) => [user.id, user.email ?? ""]));
-  return profiles.map((profile) => ({ ...profile, email: emailById.get(profile.id) ?? "" }));
+  const { data: subscriptions } = await admin.from("subscriptions").select("owner_id, plan_key, status, access_until, current_period_end");
+  const subscriptionByOwner = new Map((subscriptions ?? []).map((subscription) => [subscription.owner_id, subscription]));
+  return profiles.map((profile) => ({ ...profile, email: emailById.get(profile.id) ?? "", subscription: subscriptionByOwner.get(profile.id) ?? null }));
 }
 
 export async function getAdminBusinesses(q?: string) {

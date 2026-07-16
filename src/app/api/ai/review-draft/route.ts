@@ -6,6 +6,7 @@ import { REVIEW_PROMPT_SETTING_KEY, parseReviewPromptConfig, serializeReviewOpti
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getClientIp, hashIp } from "@/lib/security/ip";
 import { assertRateLimit, RateLimitError } from "@/lib/security/rate-limit";
+import { assertAiUsageLimit, recordUsage } from "@/lib/billing/entitlements";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -17,6 +18,13 @@ export async function POST(request: NextRequest) {
 
   const { business, campaign, unavailableCampaign } = await getPublicBusiness(parsed.data.businessSlug, parsed.data.campaignToken);
   if (!business || unavailableCampaign) return NextResponse.json({ error: "Feedback page unavailable." }, { status: 404 });
+
+  try {
+    await assertAiUsageLimit(business.owner_id);
+  } catch (error) {
+    await createAdminClient().from("ai_usage_logs").insert({ business_id: business.id, provider: process.env.OPENROUTER_API_KEY ? "openrouter" : "reviewflow", model: process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? "unconfigured", status: "blocked", error_message: error instanceof Error ? error.message : "AI usage limit reached" });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "AI generation is not available on this plan." }, { status: 402 });
+  }
 
   const ipHash = hashIp(getClientIp(request));
   try {
@@ -119,6 +127,8 @@ export async function POST(request: NextRequest) {
       status: "success"
     })
   ]);
+
+  await recordUsage(business.owner_id, "ai_generation");
 
   return NextResponse.json({ feedbackId: feedback.id, drafts: usage.drafts });
 }

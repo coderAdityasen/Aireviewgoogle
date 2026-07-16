@@ -11,11 +11,15 @@ function isAdminPath(pathname: string) {
   return pathname === "/admin" || pathname.startsWith("/admin/");
 }
 
+function isOnboardingPath(pathname: string) {
+  return pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+}
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   let response = NextResponse.next({ request });
 
-  if (!isProtectedDashboard(pathname) && !isAdminPath(pathname)) {
+  if (!isProtectedDashboard(pathname) && !isAdminPath(pathname) && !isOnboardingPath(pathname)) {
     return response;
   }
 
@@ -71,5 +75,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*"]
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/onboarding/:path*"]
 };

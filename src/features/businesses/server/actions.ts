@@ -4,8 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireActiveOwner } from "@/lib/auth/roles";
 import { businessSchema } from "@/lib/validation/business";
+import { assertBusinessLimit, assertQrCampaignLimit, requirePaidOwner } from "@/lib/billing/entitlements";
 
 function servicesToJson(services: string) {
   return services
@@ -34,7 +34,9 @@ async function uniqueBusinessSlug(baseName: string) {
 }
 
 export async function createBusinessAction(input: unknown) {
-  const { user } = await requireActiveOwner();
+  const { user } = await requirePaidOwner();
+  await assertBusinessLimit(user.id);
+  await assertQrCampaignLimit(user.id);
   const parsed = businessSchema.parse(input);
   const supabase = await createClient();
   const slug = await uniqueBusinessSlug(parsed.name);
@@ -63,6 +65,11 @@ export async function createBusinessAction(input: unknown) {
       brand_color: parsed.brandColor,
       google_review_url: parsed.googleReviewUrl,
       default_language: parsed.defaultLanguage,
+      experience_tags: servicesToJson(parsed.experienceTags),
+      low_rating_support_message: parsed.lowRatingSupportMessage || null,
+      contact_fields: servicesToJson(parsed.contactFields),
+      poster_headline: parsed.posterHeadline || null,
+      poster_template: parsed.posterTemplate,
       is_active: true
     })
     .select("id")
@@ -89,7 +96,7 @@ export async function createBusinessAction(input: unknown) {
 }
 
 export async function updateBusinessAction(businessId: string, input: unknown) {
-  const { user } = await requireActiveOwner();
+  const { user } = await requirePaidOwner();
   const parsed = businessSchema.parse(input);
   const supabase = await createClient();
   const { error } = await supabase
@@ -110,6 +117,11 @@ export async function updateBusinessAction(businessId: string, input: unknown) {
       brand_color: parsed.brandColor,
       google_review_url: parsed.googleReviewUrl,
       default_language: parsed.defaultLanguage
+      ,experience_tags: servicesToJson(parsed.experienceTags)
+      ,low_rating_support_message: parsed.lowRatingSupportMessage || null
+      ,contact_fields: servicesToJson(parsed.contactFields)
+      ,poster_headline: parsed.posterHeadline || null
+      ,poster_template: parsed.posterTemplate
     })
     .eq("id", businessId)
     .eq("owner_id", user.id);
@@ -129,7 +141,7 @@ export async function updateBusinessAction(businessId: string, input: unknown) {
 }
 
 export async function deleteBusinessAction(businessId: string, confirmation: string) {
-  const { user } = await requireActiveOwner();
+  const { user } = await requirePaidOwner();
   if (confirmation !== "DELETE") throw new Error("Confirmation did not match.");
   const supabase = await createClient();
   const { error } = await supabase.from("businesses").delete().eq("id", businessId).eq("owner_id", user.id);

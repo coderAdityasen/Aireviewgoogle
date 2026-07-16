@@ -5,7 +5,10 @@ import { recordEvent } from "@/features/feedback/server/public";
 
 const privateSchema = z.object({
   feedbackId: z.string().uuid(),
-  finalEditedText: z.string().min(10).max(4000)
+  finalEditedText: z.string().min(10).max(4000),
+  customerName: z.string().max(120).optional(),
+  customerEmail: z.string().email().optional(),
+  customerPhone: z.string().max(40).optional()
 });
 
 export async function POST(request: Request) {
@@ -15,7 +18,7 @@ export async function POST(request: Request) {
   const admin = createAdminClient();
   const { data: feedback, error } = await admin
     .from("customer_feedback")
-    .update({ final_edited_text: parsed.data.finalEditedText, submitted_privately: true })
+    .update({ final_edited_text: parsed.data.finalEditedText, submitted_privately: true, customer_name: parsed.data.customerName ?? null, customer_email: parsed.data.customerEmail ?? null, customer_phone: parsed.data.customerPhone ?? null })
     .eq("id", parsed.data.feedbackId)
     .select("business_id, qr_campaign_id, visitor_session_id")
     .single();

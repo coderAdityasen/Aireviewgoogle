@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getOwnerBusiness } from "@/features/businesses/server/queries";
 import { createClient } from "@/lib/supabase/server";
+import { assertCsvExportAccess, recordUsage } from "@/lib/billing/entitlements";
+import { getCurrentUser } from "@/lib/auth/roles";
 
 function csvEscape(value: unknown) {
   const text = value === null || value === undefined ? "" : String(value);
@@ -10,6 +12,10 @@ function csvEscape(value: unknown) {
 export async function GET(request: NextRequest) {
   const businessId = request.nextUrl.searchParams.get("businessId");
   if (!businessId) return NextResponse.json({ error: "businessId is required." }, { status: 400 });
+
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
+  try { await assertCsvExportAccess(user.id); } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "CSV export is unavailable." }, { status: 402 }); }
 
   const business = await getOwnerBusiness(businessId);
   const supabase = await createClient();
@@ -33,6 +39,7 @@ export async function GET(request: NextRequest) {
     ])
   ];
   const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+  await recordUsage(user.id, "csv_export");
 
   return new NextResponse(csv, {
     headers: {

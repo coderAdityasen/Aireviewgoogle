@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getOwnerBusiness } from "@/features/businesses/server/queries";
-import { deleteFeedbackAction } from "@/features/feedback/server/actions";
+import { deleteFeedbackAction, updateFeedbackResolutionAction } from "@/features/feedback/server/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
@@ -26,6 +26,7 @@ export default async function BusinessFeedbackPage({ params }: { params: Promise
           <Th>Private</Th>
           <Th>Customer notes</Th>
           <Th>Generated draft</Th>
+          <Th>Workflow</Th>
           <Th>Delete</Th>
         </Tr>
       </thead>
@@ -38,6 +39,7 @@ export default async function BusinessFeedbackPage({ params }: { params: Promise
             </Td>
             <Td className="max-w-xs">{row.original_notes}</Td>
             <Td className="max-w-xs">{row.final_edited_text ?? row.generated_draft}</Td>
+            <Td><form action={updateFeedbackResolutionAction} className="space-y-2"><input type="hidden" name="id" value={row.id} /><input type="hidden" name="businessId" value={id} /><select name="status" defaultValue={row.resolution_status} className="h-8 rounded border bg-card px-2 text-xs"><option value="new">New</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select><Input name="internalNotes" defaultValue={row.internal_notes ?? ""} placeholder="Internal note" className="h-8 w-32 text-xs" /><Button size="sm" variant="outline">Save</Button></form></Td>
             <Td>
               <form action={deleteFeedbackAction} className="flex gap-2">
                 <input type="hidden" name="id" value={row.id} />

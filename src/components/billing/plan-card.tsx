@@ -1,0 +1,4 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import type { PlanConfig } from "@/config/plans";
+export function PlanCard({ plan, highlighted = false }: { plan: PlanConfig; highlighted?: boolean }) { return <article className={`rounded-2xl border bg-card p-5 ${highlighted ? "border-primary shadow-md" : ""}`}><h3 className="text-lg font-semibold">{plan.name}</h3><p className="mt-3 text-2xl font-semibold">₹{plan.priceInr.toLocaleString("en-IN")}<span className="text-sm font-normal text-muted-foreground">/month</span></p><ul className="mt-4 space-y-2 text-sm text-muted-foreground">{plan.features.map((feature) => <li key={feature}>✓ {feature}</li>)}</ul><Button asChild className="mt-6 w-full"><Link href={`/billing/checkout?plan=${plan.key}`}>Choose {plan.name}</Link></Button></article>; }

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { detectDeviceType, getClientIp, getOrCreateAnonymousId, hashIp } from "@/lib/security/ip";
 import type { AnalyticsEventType, Business, QrCampaign } from "@/types/database";
+import { hasPaidAccess } from "@/lib/billing/entitlements";
 
 export async function getPublicBusiness(slug: string, campaignToken?: string | null) {
   const admin = createAdminClient();
@@ -14,6 +15,7 @@ export async function getPublicBusiness(slug: string, campaignToken?: string | n
     .maybeSingle();
   if (error) throw error;
   if (!business) return { business: null, campaign: null };
+  if (!(await hasPaidAccess(business.owner_id))) return { business: null, campaign: null, unavailableBusiness: true };
 
   let campaign: QrCampaign | null = null;
   if (campaignToken) {

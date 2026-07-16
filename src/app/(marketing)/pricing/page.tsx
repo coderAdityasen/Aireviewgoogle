@@ -1,35 +1,9 @@
+import Link from "next/link";
 import { MarketingHeader } from "@/components/layout/marketing-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { PLANS } from "@/config/plans";
 
 export default function PricingPage() {
-  return (
-    <>
-      <MarketingHeader />
-      <main className="mx-auto max-w-5xl px-4 py-12">
-        <h1 className="text-3xl font-semibold">Pricing</h1>
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
-          {[
-            ["Starter", "$29", "1 business, 3 QR campaigns"],
-            ["Growth", "$79", "5 businesses, advanced analytics"],
-            ["Platform", "Custom", "Admin controls, higher AI limits"]
-          ].map(([name, price, detail]) => (
-            <Card key={name}>
-              <CardHeader>
-                <CardTitle>{name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold">{price}</p>
-                <p className="mt-3 text-sm text-muted-foreground">{detail}</p>
-                <Button asChild className="mt-6 w-full">
-                  <Link href="/signup">Get started</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </main>
-    </>
-  );
+  return <><MarketingHeader /><main className="mx-auto max-w-6xl px-4 py-16"><div className="max-w-2xl"><p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Simple paid access</p><h1 className="mt-3 text-4xl font-semibold tracking-tight">A calmer way to collect real customer feedback</h1><p className="mt-4 text-muted-foreground">Choose the workspace size that matches your locations. Every plan keeps the customer in control and opens Google only after they choose to continue.</p></div><div className="mt-10 grid gap-5 lg:grid-cols-3">{Object.values(PLANS).map((plan, index) => <Card key={plan.key} className={index === 1 ? "border-primary shadow-md" : ""}><CardHeader><div className="flex items-center justify-between"><CardTitle>{plan.name}</CardTitle>{index === 1 ? <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">Most flexible</span> : null}</div><p className="pt-3 text-3xl font-semibold">₹{plan.priceInr.toLocaleString("en-IN")}<span className="text-sm font-normal text-muted-foreground">/month</span></p></CardHeader><CardContent><p className="text-sm">{plan.businesses} location{plan.businesses === 1 ? "" : "s"} · {plan.qrCampaigns} QR campaigns · {plan.aiGenerations.toLocaleString("en-IN")} AI drafts per period</p><ul className="mt-5 space-y-2 text-sm text-muted-foreground">{plan.features.map((feature) => <li key={feature}>✓ {feature}</li>)}</ul><Button asChild className="mt-7 w-full"><Link href={`/billing/checkout?plan=${plan.key}`}>Choose {plan.name}</Link></Button></CardContent></Card>)}</div><p className="mt-8 text-center text-sm text-muted-foreground">No free tier. Test Mode is available locally; no live payment calls are made by this project.</p></main></>;
 }

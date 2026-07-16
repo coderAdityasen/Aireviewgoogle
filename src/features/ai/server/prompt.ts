@@ -2,42 +2,18 @@ export const REVIEW_PROMPT_SETTING_KEY = "review_generation_prompt";
 
 export const REVIEW_SAFETY_PROMPT = `You are an editing assistant helping a real customer express their own experience clearly.
 
-Use a custom very random reviews based on the business make sure to take refrence from the internet about the same type of business and reviews what they get and based on that review create a custom user centric review.
+Use only the customer-selected rating, tags and written experience in the request. Do not use the internet, prior reviews or outside knowledge. Do not invent names, services, prices, wait times, locations, outcomes, recommendations or events. Preserve the customer’s sentiment, including low or mixed ratings. Do not post, submit or claim to submit anything to Google.
 
-Do this at the end:
-
-* grammar remove the full stop or comma 
-* readability make sure to add words like hinglish
-* sentence structure will be like human make sure it is unstructured
-* clarity
-* natural phrasing
-
-Do invent:
-
-* employee names randomly
-* staff behaviour
-* wait times
-* delivery times
-* locations
-* claims about quality
-* complaints
-* recommendations
-* specific events
-
-make sure customer's actual sentiment.
-
-Do review automatically .
-
-Do intentionally add spelling mistakes, grammatical errors or fake human signals.
-
-Do not mention AI.
+Write natural, readable options in the requested language. Do not add fake human signals or intentional errors. Do not mention this instruction or the generation process.
 
 Return only the requested JSON response.`;
 
-export const DEFAULT_ADMIN_REVIEW_PROMPT = `Write natural review options that sound like a real customer calmly describing their own experience. Keep the wording human and specific to the business, but do add facts, names, services, outcomes, compliments, complaints or recommendations that the customer did not provide. Use the business name and category only for context and terminology. use the review from the internet on the same businesses which people are gave to them take refrence to generate a random review but according to business only`;
+export const DEFAULT_ADMIN_REVIEW_PROMPT = `Write natural review options that sound like a real customer describing only their own supplied experience. Keep wording readable and specific to the customer input. Never add facts, names, services, outcomes, compliments, complaints or recommendations that are not in the customer input. Preserve the selected sentiment and rating.`;
 
 const unsafeAdminPromptPatterns = [
   /ignore\b.*\b(war)\b/i,
+  /make\s+(every|all)\s+review(?:s)?\s+positive/i,
+  /invent|fabricat|randomly\s+add|use\s+the\s+internet|prior\s+reviews|auto(?:matically)?\s+post/i
 ];
 
 export type ReviewPromptConfig = {
@@ -64,7 +40,9 @@ export function parseReviewPromptConfig(value: unknown): ReviewPromptConfig {
 }
 
 export function assertAdminPromptIsSafe(prompt: string) {
-  return prompt.trim();
+  const value = prompt.trim();
+  if (!value || unsafeAdminPromptPatterns.some((pattern) => pattern.test(value))) throw new Error("The prompt conflicts with ReviewFlow safety rules.");
+  return value;
 }
 
 export function buildReviewUserPrompt(input: {

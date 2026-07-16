@@ -15,12 +15,13 @@ const actions = {
   forgot: resetPasswordAction
 };
 
-export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
+export function AuthForm({ mode, next, plan }: { mode: Mode; next?: string; plan?: string }) {
   const [state, formAction, pending] = useActionState(actions[mode], { ok: false, message: "" });
 
   return (
     <form action={formAction} className="space-y-4">
       {next ? <input type="hidden" name="next" value={next} /> : null}
+      {plan ? <input type="hidden" name="plan" value={plan} /> : null}
       {mode === "signup" ? (
         <div className="space-y-2">
           <Label htmlFor="fullName">Full name</Label>
@@ -37,6 +38,7 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
           <Input id="password" name="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required />
         </div>
       ) : null}
+      {mode === "signup" && plan ? <p className="rounded-lg bg-primary/5 p-3 text-sm text-primary">Selected plan: <span className="font-semibold capitalize">{plan}</span>. You will finish payment after verifying your email.</p> : null}
       {state.message ? (
         <p className={state.ok ? "text-sm text-primary" : "text-sm text-destructive"} aria-live="polite">
           {state.message}

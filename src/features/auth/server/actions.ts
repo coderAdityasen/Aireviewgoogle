@@ -12,6 +12,7 @@ export async function signInAction(_: unknown, formData: FormData) {
     password: formData.get("password")
   });
   const next = safeLocalRedirect(String(formData.get("next") ?? ""));
+  const plan = String(formData.get("plan") ?? "");
 
   if (!parsed.success) {
     return { ok: false, message: "Enter a valid email and password." };
@@ -20,7 +21,7 @@ export async function signInAction(_: unknown, formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { ok: false, message: error.message };
-  redirect(next);
+  redirect(next !== "/dashboard" ? next : plan ? `/billing/checkout?plan=${encodeURIComponent(plan)}` : next);
 }
 
 export async function signUpAction(_: unknown, formData: FormData) {
@@ -29,6 +30,7 @@ export async function signUpAction(_: unknown, formData: FormData) {
     email: formData.get("email"),
     password: formData.get("password")
   });
+  const plan = String(formData.get("plan") ?? "");
 
   if (!parsed.success) {
     return { ok: false, message: "Enter your name, a valid email and a password with at least 8 characters." };
@@ -45,7 +47,7 @@ export async function signUpAction(_: unknown, formData: FormData) {
   });
 
   if (error) return { ok: false, message: error.message };
-  redirect("/login?checkEmail=1");
+  redirect(`/login?checkEmail=1${plan ? `&plan=${encodeURIComponent(plan)}` : ""}`);
 }
 
 export async function resetPasswordAction(_: unknown, formData: FormData) {

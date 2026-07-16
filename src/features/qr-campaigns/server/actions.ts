@@ -3,11 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireActiveOwner } from "@/lib/auth/roles";
 import { qrCampaignSchema } from "@/lib/validation/business";
+import { assertQrCampaignLimit, requirePaidOwner } from "@/lib/billing/entitlements";
 
 export async function createQrCampaignAction(input: unknown) {
-  const { user } = await requireActiveOwner();
+  const { user } = await requirePaidOwner();
+  await assertQrCampaignLimit(user.id);
   const parsed = qrCampaignSchema.parse(input);
   const supabase = await createClient();
   const { data: business, error: businessError } = await supabase
@@ -36,7 +37,7 @@ export async function createQrCampaignAction(input: unknown) {
 }
 
 export async function setQrCampaignActiveAction(campaignId: string, businessId: string, isActive: boolean) {
-  const { user } = await requireActiveOwner();
+  const { user } = await requirePaidOwner();
   const supabase = await createClient();
   const { data: business } = await supabase.from("businesses").select("id").eq("id", businessId).eq("owner_id", user.id).single();
   if (!business) throw new Error("Business not found.");

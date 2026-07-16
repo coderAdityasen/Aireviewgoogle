@@ -33,7 +33,7 @@ export default async function PublicReviewPage({
           <p className="mt-1 text-sm text-muted-foreground">{business.category}</p>
           {business.description ? <p className="mt-3 text-sm text-muted-foreground">{business.description}</p> : null}
         </header>
-        <PublicFeedbackForm business={business} campaignToken={campaign} />
+        <PublicFeedbackForm business={business} campaignToken={campaign} experienceTags={Array.isArray(business.experience_tags) ? business.experience_tags.filter((field): field is string => typeof field === "string") : []} contactFields={Array.isArray(business.contact_fields) ? business.contact_fields.filter((field): field is string => typeof field === "string") : []} lowRatingSupportMessage={business.low_rating_support_message} />
       </div>
     </main>
   );
