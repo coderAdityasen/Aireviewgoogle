@@ -4,7 +4,7 @@ import { Table, Td, Th, Tr } from "@/components/ui/table";
 export default async function AdminAiUsagePage() {
   const { data, error } = await createAdminClient()
     .from("ai_usage_logs")
-    .select("*, businesses(name)")
+    .select("id, provider, model, input_tokens, output_tokens, estimated_cost, status, businesses(name)")
     .order("created_at", { ascending: false })
     .limit(200);
   if (error) throw error;

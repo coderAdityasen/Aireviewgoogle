@@ -28,7 +28,7 @@ export function CampaignForm({ businessId }: { businessId: string }) {
       }}
     >
       <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Reception desk" required />
-      <Button disabled={pending} className="sm:w-fit">
+      <Button loading={pending} loadingLabel="Creating…" className="sm:w-fit">
         <Plus className="h-4 w-4" />
         Add
       </Button>

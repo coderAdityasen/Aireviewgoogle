@@ -16,6 +16,7 @@ declare global {
 export function CheckoutButton({ planKey }: { planKey: PlanKey }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
+  const [checkoutReady, setCheckoutReady] = useState(false);
 
   async function startCheckout() {
     setPending(true);
@@ -36,13 +37,17 @@ export function CheckoutButton({ planKey }: { planKey: PlanKey }) {
         name: "ReviewFlow",
         description: `${created.plan.name} monthly plan`,
         handler: async (result: { razorpay_payment_id: string; razorpay_subscription_id: string; razorpay_signature: string }) => {
-          const verification = await fetch("/api/billing/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planKey, ...result }) });
-          if (!verification.ok) {
-            const error = await verification.json().catch(() => ({}));
-            toast.error(error.error ?? "Payment could not be verified.");
-            return;
+          try {
+            const verification = await fetch("/api/billing/verify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ planKey, ...result }) });
+            if (!verification.ok) {
+              const error = await verification.json().catch(() => ({}));
+              throw new Error(error.error ?? "Payment could not be verified.");
+            }
+            router.push("/billing/processing");
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Payment could not be verified.");
+            setPending(false);
           }
-          router.push("/billing/processing");
         },
         modal: { ondismiss: () => setPending(false) }
       });
@@ -53,10 +58,5 @@ export function CheckoutButton({ planKey }: { planKey: PlanKey }) {
     }
   }
 
-  return (
-    <>
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" />
-      <Button onClick={startCheckout} disabled={pending} className="w-full">{pending ? "Starting secure checkout…" : "Start secure checkout"}</Button>
-    </>
-  );
+  return <><Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="afterInteractive" onLoad={() => setCheckoutReady(true)} onError={() => toast.error("Razorpay Checkout could not be loaded. Check your network connection.")} /><Button onClick={() => void startCheckout()} loading={pending} loadingLabel="Starting secure checkout…" disabled={pending} className="w-full">{checkoutReady ? "Start secure checkout" : "Continue to checkout"}</Button></>;
 }

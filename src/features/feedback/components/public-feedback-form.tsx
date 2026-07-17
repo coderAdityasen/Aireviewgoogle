@@ -53,6 +53,9 @@ export function PublicFeedbackForm({
   const [selectedDraft, setSelectedDraft] = useState("");
   const [copied, setCopied] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [openingGoogle, setOpeningGoogle] = useState(false);
+  const [submittingPrivate, setSubmittingPrivate] = useState(false);
   const [listening, setListening] = useState(false);
   const [contact, setContact] = useState({ name: "", email: "", phone: "" });
   const [contactConsent, setContactConsent] = useState(false);
@@ -62,14 +65,17 @@ export function PublicFeedbackForm({
   const isLowRating = rating !== null && rating <= 3;
 
   useEffect(() => {
+    const controller = new AbortController();
     fetch("/api/events/scan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessSlug: business.slug, campaignToken })
+      body: JSON.stringify({ businessSlug: business.slug, campaignToken }),
+      signal: controller.signal
     })
       .then((response) => (response.ok ? response.json() : null))
       .then((json) => setVisitorSessionId(json?.visitorSessionId ?? null))
       .catch(() => undefined);
+    return () => controller.abort();
   }, [business.slug, campaignToken]);
 
   function toggleTag(tag: string) {
@@ -133,34 +139,41 @@ export function PublicFeedbackForm({
   }
 
   async function copyReview(draft: string) {
-    await navigator.clipboard.writeText(draft);
-    const response = await fetch("/api/events/copy", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ feedbackId, finalEditedText: draft })
-    });
-    if (!response.ok) {
-      toast.error("We could not record that copy action.");
-      return;
+    setCopying(true);
+    try {
+      await navigator.clipboard.writeText(draft);
+      const response = await fetch("/api/events/copy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedbackId, finalEditedText: draft })
+      });
+      if (!response.ok) throw new Error("We could not record that copy action.");
+      setSelectedDraft(draft);
+      setCopied(true);
+      toast.success("Review text copied.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Review text could not be copied.");
+    } finally {
+      setCopying(false);
     }
-    setSelectedDraft(draft);
-    setCopied(true);
-    toast.success("Review text copied.");
   }
 
   async function continueToGoogle() {
-    const response = await fetch("/api/events/redirect", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ feedbackId })
-    });
-    const json = await response.json();
-    if (!response.ok) {
-      toast.error(json.error ?? "Unable to open the Google review page.");
-      return;
+    setOpeningGoogle(true);
+    try {
+      const response = await fetch("/api/events/redirect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feedbackId })
+      });
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error ?? "Unable to open the Google review page.");
+      window.open(json.url, "_blank", "noopener,noreferrer");
+      window.location.href = `/r/${business.slug}/success`;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to open the Google review page.");
+      setOpeningGoogle(false);
     }
-    window.open(json.url, "_blank", "noopener,noreferrer");
-    window.location.href = `/r/${business.slug}/success`;
   }
 
   async function submitPrivate() {
@@ -172,18 +185,26 @@ export function PublicFeedbackForm({
       toast.error("Confirm that you want the business to contact you.");
       return;
     }
-    const response = await fetch("/api/feedback/private", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        feedbackId,
-        finalEditedText: selectedDraft || experience,
-        customerName: contact.name || undefined,
-        customerEmail: contact.email || undefined,
-        customerPhone: contact.phone || undefined
-      })
-    });
-    toast[response.ok ? "success" : "error"](response.ok ? "Private feedback sent to the business." : "Unable to send private feedback.");
+    setSubmittingPrivate(true);
+    try {
+      const response = await fetch("/api/feedback/private", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feedbackId,
+          finalEditedText: selectedDraft || experience,
+          customerName: contact.name || undefined,
+          customerEmail: contact.email || undefined,
+          customerPhone: contact.phone || undefined
+        })
+      });
+      if (!response.ok) throw new Error("Unable to send private feedback.");
+      toast.success("Private feedback sent to the business.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to send private feedback.");
+    } finally {
+      setSubmittingPrivate(false);
+    }
   }
 
   return (
@@ -210,7 +231,7 @@ export function PublicFeedbackForm({
         <div><Label htmlFor="experience">What happened?</Label><div className="mt-2 flex items-start gap-2"><Textarea id="experience" value={experience} onChange={(event) => setExperience(event.target.value)} placeholder="Share what really happened — good, bad or somewhere in between." className="min-h-32" /><Button type="button" variant="outline" size="icon" onClick={startVoiceInput} aria-label="Use voice input">{listening ? "…" : "Mic"}</Button></div><p className="mt-2 text-xs text-muted-foreground">At least 15 characters. Voice input stays in your browser until you submit the form.</p></div>
         <div><Label>What was relevant? (optional)</Label><div className="mt-2 flex flex-wrap gap-2">{availableTags.map((tag) => <button key={tag} type="button" onClick={() => toggleTag(tag)} className={`rounded-full border px-3 py-1.5 text-sm ${selectedTags.includes(tag) ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}>{tag}</button>)}</div></div>
         <div className="grid gap-3 sm:grid-cols-2"><div><Label htmlFor="language">Language</Label><select id="language" value={language} onChange={(event) => setLanguage(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-card px-3 text-sm"><option value="en">English</option><option value="hi">Hindi</option><option value="hinglish">Hinglish</option></select></div><div><Label htmlFor="length">Review length</Label><select id="length" value={length} onChange={(event) => setLength(event.target.value as typeof length)} className="mt-2 h-10 w-full rounded-md border bg-card px-3 text-sm"><option value="short">Short</option><option value="standard">Standard</option><option value="detailed">Detailed</option></select></div></div>
-        <Button type="button" disabled={!canGenerate || generating} onClick={generateDrafts}>{generating ? "Generating grounded options…" : drafts.length ? "Regenerate options" : "Generate 3 grounded options"}</Button>
+        <Button type="button" loading={generating} loadingLabel="Generating…" disabled={!canGenerate} onClick={() => void generateDrafts}>{drafts.length ? "Regenerate options" : "Generate 3 grounded options"}</Button>
       </section> : null}
 
       {generating ? <section className="rounded-2xl border bg-card p-5" aria-label="Generating review options"><Skeleton className="h-5 w-48" /><div className="mt-4 space-y-3">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-24 w-full" />)}</div></section> : null}
@@ -220,7 +241,7 @@ export function PublicFeedbackForm({
         <div className="space-y-3">{drafts.map((draft, index) => <button key={`${draft}-${index}`} type="button" onClick={() => setSelectedDraft(draft)} className={`w-full rounded-xl border p-4 text-left text-sm leading-6 ${selectedDraft === draft ? "border-primary bg-primary/5" : "hover:bg-muted"}`}><span className="mb-2 flex justify-between text-xs font-medium uppercase text-muted-foreground">Option {index + 1}<Copy className="h-4 w-4" /></span>{draft}</button>)}</div>
         <div><Label htmlFor="edit-review">Edit before copying or write your own</Label><Textarea id="edit-review" value={selectedDraft} onChange={(event) => setSelectedDraft(event.target.value)} className="mt-2 min-h-28" placeholder="Select an option or write your own words." /></div>
         {isLowRating && (contactFields.length || lowRatingSupportMessage) ? <div className="rounded-xl bg-muted p-4"><p className="text-sm font-medium">Want the business to follow up privately?</p><p className="mt-1 text-xs text-muted-foreground">{lowRatingSupportMessage ?? "Share contact details only if you want a response. This information is not sent to the AI assistant."}</p>{contactFields.length ? <div className="mt-3 grid gap-3 sm:grid-cols-3">{contactFields.includes("name") ? <ContactInput label="Name" value={contact.name} onChange={(value) => setContact((current) => ({ ...current, name: value }))} /> : null}{contactFields.includes("email") ? <ContactInput label="Email" value={contact.email} onChange={(value) => setContact((current) => ({ ...current, email: value }))} /> : null}{contactFields.includes("phone") ? <ContactInput label="Phone" value={contact.phone} onChange={(value) => setContact((current) => ({ ...current, phone: value }))} /> : null}<label className="flex items-start gap-2 text-xs sm:col-span-3"><input type="checkbox" checked={contactConsent} onChange={(event) => setContactConsent(event.target.checked)} className="mt-0.5 h-4 w-4" />I consent to sharing these contact details with the business for a private follow-up.</label></div> : null}</div> : null}
-        <div className="flex flex-wrap gap-2"><Button type="button" disabled={selectedDraft.trim().length < 10} onClick={() => copyReview(selectedDraft)}><Copy className="h-4 w-4" />Copy selected text</Button><Button type="button" variant="outline" disabled={!copied} onClick={continueToGoogle}><ExternalLink className="h-4 w-4" />Open Google review page</Button>{isLowRating ? <Button type="button" variant="ghost" disabled={!feedbackId} onClick={submitPrivate}>Send private feedback too</Button> : null}</div>
+        <div className="flex flex-wrap gap-2"><Button type="button" loading={copying} loadingLabel="Copying…" disabled={selectedDraft.trim().length < 10} onClick={() => void copyReview(selectedDraft)}><Copy className="h-4 w-4" />Copy selected text</Button><Button type="button" variant="outline" loading={openingGoogle} loadingLabel="Opening…" disabled={!copied || openingGoogle} onClick={() => void continueToGoogle}><ExternalLink className="h-4 w-4" />Open Google review page</Button>{isLowRating ? <Button type="button" variant="ghost" loading={submittingPrivate} loadingLabel="Sending…" disabled={!feedbackId || submittingPrivate} onClick={() => void submitPrivate}>Send private feedback too</Button> : null}</div>
         {copied ? <p className="rounded-xl bg-muted p-3 text-sm">Your text is copied. The next page is Google’s official review page; you choose the rating and submit it there.</p> : null}
       </section> : null}
     </div>

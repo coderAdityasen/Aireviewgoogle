@@ -1,1 +1,1 @@
-export function PageSkeleton() { return <div className="animate-pulse space-y-4"><div className="h-8 w-52 rounded bg-muted" /><div className="h-32 rounded-2xl bg-muted" /><div className="h-48 rounded-2xl bg-muted" /></div>; }
+export { PageSkeleton } from "@/components/ui/loading-states";

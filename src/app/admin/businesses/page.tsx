@@ -5,6 +5,7 @@ import {
 } from "@/features/admin/server/actions";
 import { getAdminBusinesses } from "@/features/admin/server/queries";
 import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
@@ -43,7 +44,7 @@ export default async function AdminBusinessesPage({ searchParams }: { searchPara
                     <Input name="phone" defaultValue={business.phone ?? ""} />
                     <Input name="website" defaultValue={business.website ?? ""} />
                     <Input name="googleReviewUrl" defaultValue={business.google_review_url} />
-                    <Button size="sm">Save admin edits</Button>
+                    <FormSubmitButton size="sm" loadingLabel="Saving…">Save admin edits</FormSubmitButton>
                   </form>
                 </details>
               </Td>
@@ -58,16 +59,16 @@ export default async function AdminBusinessesPage({ searchParams }: { searchPara
                   <form action={setBusinessActiveAction}>
                     <input type="hidden" name="id" value={business.id} />
                     <input type="hidden" name="isActive" value={business.is_active ? "false" : "true"} />
-                    <Button size="sm" variant="outline">
+                    <FormSubmitButton size="sm" variant="outline" loadingLabel={business.is_active ? "Disabling…" : "Enabling…"}>
                       {business.is_active ? "Disable" : "Enable"}
-                    </Button>
+                    </FormSubmitButton>
                   </form>
                   <form action={deleteBusinessAdminAction} className="flex gap-2">
                     <input type="hidden" name="id" value={business.id} />
                     <Input name="confirmation" placeholder="DELETE" className="h-8 w-24" />
-                    <Button size="sm" variant="destructive">
+                    <FormSubmitButton size="sm" variant="destructive" loadingLabel="Deleting…">
                       Delete
-                    </Button>
+                    </FormSubmitButton>
                   </form>
                 </div>
               </Td>

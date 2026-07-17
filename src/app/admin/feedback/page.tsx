@@ -4,7 +4,7 @@ import { Table, Td, Th, Tr } from "@/components/ui/table";
 export default async function AdminFeedbackPage() {
   const { data, error } = await createAdminClient()
     .from("customer_feedback")
-    .select("*, businesses(name)")
+    .select("id, rating, submitted_privately, original_notes, generated_draft, final_edited_text, businesses(name)")
     .order("created_at", { ascending: false })
     .limit(200);
   if (error) throw error;

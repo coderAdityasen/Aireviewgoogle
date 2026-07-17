@@ -66,6 +66,10 @@ export interface Business extends DbRecord {
   contact_fields: Json;
   poster_headline: string | null;
   poster_template: "light" | "dark";
+  google_place_id?: string | null;
+  google_maps_url?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -444,6 +448,7 @@ export type Database = {
       owns_business: { Args: { business_id: string }; Returns: boolean };
       can_access_campaign: { Args: { campaign_id: string }; Returns: boolean };
       slugify: { Args: { input: string }; Returns: string };
+      get_owner_analytics_summary: { Args: { p_since: string; p_business_id?: string | null; p_days?: number }; Returns: Json };
     };
   };
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,7 @@ const actions = {
 
 export function AuthForm({ mode, next, plan }: { mode: Mode; next?: string; plan?: string }) {
   const [state, formAction, pending] = useActionState(actions[mode], { ok: false, message: "" });
+  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -35,7 +36,12 @@ export function AuthForm({ mode, next, plan }: { mode: Mode; next?: string; plan
       {mode !== "forgot" ? (
         <div className="space-y-2">
           <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required />
+          <div className="relative">
+            <Input id="password" name="password" type={showPassword ? "text" : "password"} autoComplete={mode === "login" ? "current-password" : "new-password"} required className="pr-20" />
+            <button type="button" onClick={() => setShowPassword((visible) => !visible)} className="absolute inset-y-0 right-3 text-xs font-medium text-muted-foreground underline underline-offset-4" aria-label={showPassword ? "Hide password" : "Show password"}>
+              {showPassword ? "Hide" : "Show"}
+            </button>
+          </div>
         </div>
       ) : null}
       {mode === "signup" && plan ? <p className="rounded-lg bg-primary/5 p-3 text-sm text-primary">Selected plan: <span className="font-semibold capitalize">{plan}</span>. You will finish payment after verifying your email.</p> : null}
@@ -44,8 +50,8 @@ export function AuthForm({ mode, next, plan }: { mode: Mode; next?: string; plan
           {state.message}
         </p>
       ) : null}
-      <Button className="w-full" disabled={pending}>
-        {pending ? "Please wait" : mode === "login" ? "Log in" : mode === "signup" ? "Create account" : "Send reset link"}
+      <Button className="w-full" loading={pending} loadingLabel={mode === "forgot" ? "Sending…" : mode === "signup" ? "Creating…" : "Signing in…"}>
+        {mode === "login" ? "Log in" : mode === "signup" ? "Create account" : "Send reset link"}
       </Button>
       <div className="text-center text-sm text-muted-foreground">
         {mode === "login" ? (

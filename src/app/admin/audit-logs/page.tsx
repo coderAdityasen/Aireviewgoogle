@@ -2,7 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 
 export default async function AdminAuditLogsPage() {
-  const { data, error } = await createAdminClient().from("audit_logs").select("*").order("created_at", { ascending: false }).limit(200);
+  const { data, error } = await createAdminClient().from("audit_logs").select("id, action, entity_type, actor_id, created_at").order("created_at", { ascending: false }).limit(200);
   if (error) throw error;
   return (
     <Table>

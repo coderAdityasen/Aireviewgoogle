@@ -9,24 +9,23 @@ export async function getPublicBusiness(slug: string, campaignToken?: string | n
   const admin = createAdminClient();
   const { data: business, error } = await admin
     .from("businesses")
-    .select("*")
+    .select("id, owner_id, name, slug, category, description, logo_url, brand_color, default_language, google_review_url, experience_tags, low_rating_support_message, contact_fields, is_active")
     .eq("slug", slug)
     .eq("is_active", true)
     .maybeSingle();
   if (error) throw error;
   if (!business) return { business: null, campaign: null };
-  if (!(await hasPaidAccess(business.owner_id))) return { business: null, campaign: null, unavailableBusiness: true };
+  const [paid, campaignResult] = await Promise.all([
+    hasPaidAccess(business.owner_id),
+    campaignToken ? admin.from("qr_campaigns").select("id, business_id, name, public_token, is_active, created_at, updated_at").eq("business_id", business.id).eq("public_token", campaignToken).maybeSingle() : Promise.resolve({ data: null, error: null })
+  ]);
+  if (!paid) return { business: null, campaign: null, unavailableBusiness: true };
 
   let campaign: QrCampaign | null = null;
   if (campaignToken) {
-    const { data } = await admin
-      .from("qr_campaigns")
-      .select("*")
-      .eq("business_id", business.id)
-      .eq("public_token", campaignToken)
-      .maybeSingle();
-    if (!data || !data.is_active) return { business: business as Business, campaign: null, unavailableCampaign: true };
-    campaign = data;
+    if (campaignResult.error) throw campaignResult.error;
+    if (!campaignResult.data || !campaignResult.data.is_active) return { business: business as Business, campaign: null, unavailableCampaign: true };
+    campaign = campaignResult.data as QrCampaign;
   }
 
   return { business: business as Business, campaign };
@@ -45,7 +44,7 @@ export async function createVisitorSessionForRequest(
 
   const { data: existing } = await admin
     .from("visitor_sessions")
-    .select("*")
+    .select("id, business_id, qr_campaign_id, anonymous_session_id, ip_hash, user_agent, device_type, referrer, first_seen_at, last_seen_at")
     .eq("business_id", input.businessId)
     .eq("anonymous_session_id", anonymousId)
     .maybeSingle();
@@ -69,7 +68,7 @@ export async function createVisitorSessionForRequest(
       device_type: detectDeviceType(userAgent),
       referrer: request.headers.get("referer")
     })
-    .select("*")
+    .select("id, business_id, qr_campaign_id, anonymous_session_id, ip_hash, user_agent, device_type, referrer, first_seen_at, last_seen_at")
     .single();
 
   if (error) throw error;

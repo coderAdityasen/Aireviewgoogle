@@ -1,88 +1,77 @@
-import { format, subDays } from "date-fns";
+import { subDays } from "date-fns";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { computeConversionRate, summarizeEvents } from "@/lib/analytics/metrics";
+import { computeConversionRate } from "@/lib/analytics/metrics";
 import { getOwnerBusiness } from "@/features/businesses/server/queries";
 
-export async function getOwnerDashboardMetrics() {
+const eventTypes = [
+  "qr_scan",
+  "page_view",
+  "feedback_started",
+  "feedback_completed",
+  "review_generated",
+  "review_edited",
+  "review_copied",
+  "google_redirect_clicked",
+  "private_feedback_submitted"
+] as const;
+
+const summarySchema = z.object({
+  businesses: z.array(z.object({ id: z.string(), name: z.string(), is_active: z.boolean() })),
+  counts: z.object(Object.fromEntries(eventTypes.map((eventType) => [eventType, z.number()])) as Record<(typeof eventTypes)[number], z.ZodNumber>),
+  unique_visitors: z.number(),
+  average_rating: z.number(),
+  private_feedback_count: z.number(),
+  activity: z.array(z.object({ day: z.string(), scans: z.number(), redirects: z.number() })),
+  by_device: z.array(z.object({ device: z.string(), count: z.number() }))
+});
+
+export async function getOwnerDashboardMetrics(days = 14) {
   const supabase = await createClient();
-  const { data: businesses, error: businessError } = await supabase.from("businesses").select("id, name, is_active");
-  if (businessError) throw businessError;
-
-  const businessIds = (businesses ?? []).map((business) => business.id);
-  if (!businessIds.length) {
-    return {
-      businesses: businesses ?? [],
-      counts: summarizeEvents([]),
-      uniqueVisitors: 0,
-      conversion: 0,
-      activity: buildActivity([])
-    };
-  }
-
-  const since = subDays(new Date(), 30).toISOString();
-  const [{ data: events, error: eventsError }, { data: sessions, error: sessionsError }] = await Promise.all([
-    supabase.from("analytics_events").select("event_type, created_at, business_id").in("business_id", businessIds).gte("created_at", since),
-    supabase.from("visitor_sessions").select("id, business_id").in("business_id", businessIds)
+  const since = subDays(new Date(), days).toISOString();
+  const [{ data, error }, { data: recentData, error: recentError }] = await Promise.all([
+    supabase.rpc("get_owner_analytics_summary", { p_since: since, p_business_id: null, p_days: days }),
+    supabase.from("analytics_events").select("event_type, created_at, businesses(name)").order("created_at", { ascending: false }).limit(8)
   ]);
-  if (eventsError) throw eventsError;
-  if (sessionsError) throw sessionsError;
+  if (error) throw error;
+  if (recentError) throw recentError;
 
-  const counts = summarizeEvents(events ?? []);
+  const summary = summarySchema.parse(data);
+  const counts = summary.counts;
   return {
-    businesses: businesses ?? [],
+    businesses: summary.businesses,
     counts,
-    uniqueVisitors: sessions?.length ?? 0,
+    uniqueVisitors: summary.unique_visitors,
     conversion: computeConversionRate(counts.google_redirect_clicked, counts.qr_scan),
-    activity: buildActivity(events ?? [])
+    activity: summary.activity,
+    averageRating: summary.average_rating,
+    privateFeedbackCount: summary.private_feedback_count,
+    recentActivity: ((recentData ?? []) as Array<{ event_type: string; created_at: string; businesses?: { name?: string } | Array<{ name?: string }> }>).map((event) => ({
+      eventType: event.event_type,
+      createdAt: event.created_at,
+      businessName: Array.isArray(event.businesses) ? event.businesses[0]?.name ?? "Location" : event.businesses?.name ?? "Location"
+    }))
   };
 }
 
-export async function getBusinessAnalytics(businessId: string) {
+export async function getBusinessAnalytics(businessId: string, days = 30) {
   await getOwnerBusiness(businessId);
   const supabase = await createClient();
-  const since = subDays(new Date(), 30).toISOString();
-  const [{ data: events, error: eventsError }, { data: sessions }, { data: feedback }] = await Promise.all([
-    supabase.from("analytics_events").select("event_type, created_at, metadata").eq("business_id", businessId).gte("created_at", since),
-    supabase.from("visitor_sessions").select("id, device_type, qr_campaign_id").eq("business_id", businessId),
-    supabase.from("customer_feedback").select("rating, submitted_privately").eq("business_id", businessId)
-  ]);
-  if (eventsError) throw eventsError;
-  const counts = summarizeEvents(events ?? []);
-  const avgRating = feedback?.length
-    ? Number((feedback.reduce((sum, row) => sum + row.rating, 0) / feedback.length).toFixed(1))
-    : 0;
+  const since = subDays(new Date(), days).toISOString();
+  const { data, error } = await supabase.rpc("get_owner_analytics_summary", { p_since: since, p_business_id: businessId, p_days: days });
+  if (error) throw error;
 
+  const summary = summarySchema.parse(data);
+  const counts = summary.counts;
   return {
     counts,
-    uniqueVisitors: sessions?.length ?? 0,
-    averageRating: avgRating,
-    privateFeedbackCount: feedback?.filter((row) => row.submitted_privately).length ?? 0,
+    uniqueVisitors: summary.unique_visitors,
+    averageRating: summary.average_rating,
+    privateFeedbackCount: summary.private_feedback_count,
     scanToCopy: computeConversionRate(counts.review_copied, counts.qr_scan),
     scanToRedirect: computeConversionRate(counts.google_redirect_clicked, counts.qr_scan),
     copyToRedirect: computeConversionRate(counts.google_redirect_clicked, counts.review_copied),
-    activity: buildActivity(events ?? []),
-    byDevice: Object.entries(
-      (sessions ?? []).reduce<Record<string, number>>((acc, row) => {
-        const key = row.device_type ?? "unknown";
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      }, {})
-    ).map(([device, count]) => ({ device, count }))
+    activity: summary.activity,
+    byDevice: summary.by_device
   };
-}
-
-function buildActivity(events: Array<{ event_type: string; created_at: string }>) {
-  const days = Array.from({ length: 14 }, (_, index) => {
-    const day = format(subDays(new Date(), 13 - index), "yyyy-MM-dd");
-    return { day, scans: 0, redirects: 0 };
-  });
-  const byDay = new Map(days.map((day) => [day.day, day]));
-  events.forEach((event) => {
-    const day = event.created_at.slice(0, 10);
-    const bucket = byDay.get(day);
-    if (!bucket) return;
-    if (event.event_type === "qr_scan") bucket.scans += 1;
-    if (event.event_type === "google_redirect_clicked") bucket.redirects += 1;
-  });
-  return days;
 }

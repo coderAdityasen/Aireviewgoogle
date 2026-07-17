@@ -1,11 +1,13 @@
-import { ActivityChart } from "@/features/analytics/components/activity-chart";
+import { LazyActivityChart } from "@/features/analytics/components/lazy-activity-chart";
 import { getBusinessAnalytics } from "@/features/analytics/server/queries";
 import { MetricCard } from "@/components/layout/metric-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export default async function BusinessAnalyticsPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function BusinessAnalyticsPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ range?: string }> }) {
   const { id } = await params;
-  const analytics = await getBusinessAnalytics(id);
+  const { range } = await searchParams;
+  const days = range === "7" ? 7 : range === "90" ? 90 : 30;
+  const analytics = await getBusinessAnalytics(id, days);
 
   return (
     <div className="space-y-6">
@@ -21,10 +23,10 @@ export default async function BusinessAnalyticsPage({ params }: { params: Promis
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>Activity by day</CardTitle>
+          <CardTitle>{days}-day activity</CardTitle>
         </CardHeader>
         <CardContent>
-          <ActivityChart data={analytics.activity} />
+          <LazyActivityChart data={analytics.activity} />
         </CardContent>
       </Card>
     </div>

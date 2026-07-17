@@ -2,6 +2,7 @@ import { z } from "zod";
 import { normalizeGoogleReviewUrl } from "@/lib/security/google-url";
 
 export const businessSchema = z.object({
+  campaignName: z.string().max(80).optional().default(""),
   ownerFullName: z.string().min(2).max(120).optional(),
   name: z.string().min(2).max(160),
   category: z.string().min(2).max(80),
@@ -17,6 +18,10 @@ export const businessSchema = z.object({
   logoUrl: z.string().url().optional().or(z.literal("")).default(""),
   brandColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).default("#0f766e"),
   googleReviewUrl: z.string().transform((value) => normalizeGoogleReviewUrl(value)),
+  googlePlaceId: z.string().max(200).optional().default(""),
+  googleMapsUrl: z.string().url().optional().or(z.literal("")).default(""),
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
   defaultLanguage: z.string().min(2).max(12).default("en"),
   experienceTags: z.string().max(1000).optional().default(""),
   lowRatingSupportMessage: z.string().max(400).optional().default(""),

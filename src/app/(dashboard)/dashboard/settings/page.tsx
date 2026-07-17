@@ -1,6 +1,6 @@
 import { requireActiveOwner } from "@/lib/auth/roles";
 import { deleteOwnAccountAction, updatePasswordAction, updateProfileAction } from "@/features/auth/server/account-actions";
-import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +20,7 @@ export default async function SettingsPage() {
             <Input id="fullName" name="fullName" defaultValue={profile.full_name ?? ""} />
             <p className="text-sm text-muted-foreground">Email: {user.email}</p>
             <p className="text-sm text-muted-foreground">Status: {profile.account_status}</p>
-            <Button>Save profile</Button>
+            <FormSubmitButton loadingLabel="Saving…">Save profile</FormSubmitButton>
           </form>
         </CardContent>
       </Card>
@@ -32,7 +32,7 @@ export default async function SettingsPage() {
           <form action={updatePasswordAction} className="space-y-3">
             <Label htmlFor="password">New password</Label>
             <Input id="password" name="password" type="password" minLength={8} />
-            <Button>Update password</Button>
+            <FormSubmitButton loadingLabel="Updating…">Update password</FormSubmitButton>
           </form>
         </CardContent>
       </Card>
@@ -43,7 +43,7 @@ export default async function SettingsPage() {
         <CardContent>
           <form action={deleteOwnAccountAction} className="flex flex-col gap-3 sm:flex-row">
             <Input name="confirmation" placeholder="DELETE MY ACCOUNT" />
-            <Button variant="destructive">Delete account</Button>
+            <FormSubmitButton variant="destructive" loadingLabel="Deleting…">Delete account</FormSubmitButton>
           </form>
         </CardContent>
       </Card>

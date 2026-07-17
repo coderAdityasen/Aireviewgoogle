@@ -1,14 +1,13 @@
 import Link from "next/link";
-import { getBusinessCampaigns, getOwnerBusiness } from "@/features/businesses/server/queries";
-import { QrPreview } from "@/features/qr-campaigns/components/qr-preview";
+import { getOwnerBusinessWithCampaigns } from "@/features/businesses/server/queries";
+import { LazyQrPreview } from "@/features/qr-campaigns/components/lazy-qr-preview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default async function BusinessDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const business = await getOwnerBusiness(id);
-  const campaigns = await getBusinessCampaigns(id);
+  const { business, campaigns } = await getOwnerBusinessWithCampaigns(id);
   const firstCampaign = campaigns[0];
 
   return (
@@ -46,7 +45,7 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
         </CardContent>
       </Card>
       {firstCampaign ? (
-        <QrPreview slug={business.slug} campaignToken={firstCampaign.public_token} businessName={business.name} logoUrl={business.logo_url} />
+        <LazyQrPreview slug={business.slug} campaignToken={firstCampaign.public_token} businessName={business.name} logoUrl={business.logo_url} />
       ) : (
         <Card>
           <CardContent className="pt-5">Create a QR campaign to generate downloadable QR assets.</CardContent>

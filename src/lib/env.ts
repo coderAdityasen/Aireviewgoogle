@@ -35,3 +35,7 @@ export function getIpHashSecret() {
   if (!secret) throw new Error("IP_HASH_SECRET is missing.");
   return secret;
 }
+
+export function getGoogleMapsApiKey() {
+  return process.env.GOOGLE_MAPS_API_KEY ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+}

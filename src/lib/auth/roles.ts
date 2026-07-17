@@ -32,7 +32,7 @@ export async function requireUser() {
   return user;
 }
 
-export async function requireActiveOwner() {
+export const requireActiveOwner = cache(async () => {
   const user = await requireUser();
   const profile = await getCurrentProfile();
 
@@ -46,7 +46,7 @@ export async function requireActiveOwner() {
   }
 
   return { user, profile };
-}
+});
 
 export async function requireAdmin() {
   const user = await requireUser();

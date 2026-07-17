@@ -101,7 +101,7 @@ export function BusinessForm({ business }: { business?: Business }) {
         <Textarea {...form.register("services")} placeholder="One per line" />
       </Field>
       <div className="lg:col-span-2">
-        <Button disabled={pending}>{pending ? "Saving" : business ? "Save changes" : "Create business"}</Button>
+        <Button loading={pending} loadingLabel={business ? "Saving…" : "Creating…"}>{business ? "Save changes" : "Create business"}</Button>
       </div>
     </form>
   );

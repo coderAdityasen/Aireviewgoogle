@@ -1,7 +1,7 @@
 import { BusinessForm } from "@/features/businesses/components/business-form";
 import { deleteBusinessAction } from "@/features/businesses/server/actions";
 import { getOwnerBusiness } from "@/features/businesses/server/queries";
-import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
@@ -34,7 +34,7 @@ export default async function EditBusinessPage({ params }: { params: Promise<{ i
             className="flex flex-col gap-3 sm:flex-row"
           >
             <Input name="confirmation" placeholder="DELETE" />
-            <Button variant="destructive">Delete business</Button>
+            <FormSubmitButton variant="destructive" loadingLabel="Deleting…">Delete business</FormSubmitButton>
           </form>
         </CardContent>
       </Card>

@@ -1,14 +1,14 @@
 import { updatePlatformSettingAction, updateReviewPromptSettingAction } from "@/features/admin/server/actions";
 import { REVIEW_PROMPT_SETTING_KEY, parseReviewPromptConfig } from "@/features/ai/server/prompt";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function AdminSettingsPage() {
-  const { data, error } = await createAdminClient().from("platform_settings").select("*").order("setting_key");
+  const { data, error } = await createAdminClient().from("platform_settings").select("id, setting_key, setting_value").order("setting_key");
   if (error) throw error;
   const reviewPromptSetting = (data ?? []).find((setting) => setting.setting_key === REVIEW_PROMPT_SETTING_KEY);
   const reviewPromptConfig = parseReviewPromptConfig(reviewPromptSetting?.setting_value);
@@ -47,7 +47,7 @@ export default async function AdminSettingsPage() {
                 className="mt-2"
               />
             </div>
-            <Button>Save review prompt</Button>
+            <FormSubmitButton loadingLabel="Saving…">Save review prompt</FormSubmitButton>
           </form>
         </CardContent>
       </Card>
@@ -61,7 +61,7 @@ export default async function AdminSettingsPage() {
             <form action={updatePlatformSettingAction} className="space-y-3">
               <input type="hidden" name="key" value={setting.setting_key} />
               <Textarea name="value" defaultValue={JSON.stringify(setting.setting_value, null, 2)} className="font-mono" />
-              <Button>Save setting</Button>
+              <FormSubmitButton loadingLabel="Saving…">Save setting</FormSubmitButton>
             </form>
           </CardContent>
         </Card>

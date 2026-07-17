@@ -64,6 +64,10 @@ export async function createBusinessAction(input: unknown) {
       logo_url: parsed.logoUrl || null,
       brand_color: parsed.brandColor,
       google_review_url: parsed.googleReviewUrl,
+      google_place_id: parsed.googlePlaceId || null,
+      google_maps_url: parsed.googleMapsUrl || null,
+      latitude: parsed.latitude ?? null,
+      longitude: parsed.longitude ?? null,
       default_language: parsed.defaultLanguage,
       experience_tags: servicesToJson(parsed.experienceTags),
       low_rating_support_message: parsed.lowRatingSupportMessage || null,
@@ -116,6 +120,10 @@ export async function updateBusinessAction(businessId: string, input: unknown) {
       logo_url: parsed.logoUrl || null,
       brand_color: parsed.brandColor,
       google_review_url: parsed.googleReviewUrl,
+      google_place_id: parsed.googlePlaceId || null,
+      google_maps_url: parsed.googleMapsUrl || null,
+      latitude: parsed.latitude ?? null,
+      longitude: parsed.longitude ?? null,
       default_language: parsed.defaultLanguage
       ,experience_tags: servicesToJson(parsed.experienceTags)
       ,low_rating_support_message: parsed.lowRatingSupportMessage || null

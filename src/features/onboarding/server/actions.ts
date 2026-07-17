@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -14,7 +13,7 @@ export async function getOnboardingProgress(ownerId: string) {
   const { user } = await requirePaidOwner();
   if (user.id !== ownerId) throw new Error("You do not have access to this onboarding session.");
   const supabase = await createClient();
-  const { data, error } = await supabase.from("onboarding_progress").select("*").eq("owner_id", ownerId).maybeSingle();
+  const { data, error } = await supabase.from("onboarding_progress").select("owner_id, current_step, completed_steps, status, draft_data, completed_at, updated_at").eq("owner_id", ownerId).maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -25,7 +24,6 @@ export async function saveOnboardingProgressAction(input: unknown) {
   const supabase = await createClient();
   const { error } = await supabase.from("onboarding_progress").upsert({ owner_id: user.id, current_step: parsed.currentStep, completed_steps: parsed.completedSteps, status: "in_progress", draft_data: parsed.draftData as never }, { onConflict: "owner_id" });
   if (error) throw error;
-  revalidatePath("/onboarding");
   return { ok: true };
 }
 
@@ -36,15 +34,15 @@ export async function completeOnboardingAction(input: unknown) {
   const parsed = businessSchema.parse(input);
   const admin = createAdminClient();
   const slug = await uniqueBusinessSlug(parsed.name);
-  const { data: business, error } = await admin.from("businesses").insert({ owner_id: user.id, name: parsed.name, slug, category: parsed.category, description: parsed.description, services: parsed.services.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), phone: parsed.phone || null, email: parsed.email || null, website: parsed.website || null, address_line: parsed.addressLine || null, city: parsed.city || null, state: parsed.state || null, country: parsed.country || null, logo_url: parsed.logoUrl || null, brand_color: parsed.brandColor, google_review_url: parsed.googleReviewUrl, default_language: parsed.defaultLanguage, experience_tags: parsed.experienceTags.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), low_rating_support_message: parsed.lowRatingSupportMessage || null, contact_fields: parsed.contactFields.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), poster_headline: parsed.posterHeadline || null, poster_template: parsed.posterTemplate, is_active: true }).select("id").single();
+  const { data: business, error } = await admin.from("businesses").insert({ owner_id: user.id, name: parsed.name, slug, category: parsed.category, description: parsed.description, services: parsed.services.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), phone: parsed.phone || null, email: parsed.email || null, website: parsed.website || null, address_line: parsed.addressLine || null, city: parsed.city || null, state: parsed.state || null, country: parsed.country || null, logo_url: parsed.logoUrl || null, brand_color: parsed.brandColor, google_review_url: parsed.googleReviewUrl, google_place_id: parsed.googlePlaceId || null, google_maps_url: parsed.googleMapsUrl || null, latitude: parsed.latitude ?? null, longitude: parsed.longitude ?? null, default_language: parsed.defaultLanguage, experience_tags: parsed.experienceTags.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), low_rating_support_message: parsed.lowRatingSupportMessage || null, contact_fields: parsed.contactFields.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), poster_headline: parsed.posterHeadline || null, poster_template: parsed.posterTemplate, is_active: true }).select("id").single();
   if (error) throw error;
-  const { error: campaignError } = await admin.from("qr_campaigns").insert({ business_id: business.id, name: "Front desk QR", is_active: true });
+  const { data: campaign, error: campaignError } = await admin.from("qr_campaigns").insert({ business_id: business.id, name: parsed.campaignName?.trim() || (parsed.name ? `${parsed.name} QR` : "Customer QR"), is_active: true }).select("id, public_token").single();
   if (campaignError) throw campaignError;
-  const { error: progressError } = await admin.from("onboarding_progress").upsert({ owner_id: user.id, current_step: 6, completed_steps: [1, 2, 3, 4, 5, 6], status: "completed", draft_data: parsed as never, completed_at: new Date().toISOString() }, { onConflict: "owner_id" });
+  const { error: progressError } = await admin.from("onboarding_progress").upsert({ owner_id: user.id, current_step: 3, completed_steps: [1, 2, 3], status: "completed", draft_data: parsed as never, completed_at: new Date().toISOString() }, { onConflict: "owner_id" });
   if (progressError) throw progressError;
   await admin.from("audit_logs").insert({ actor_id: user.id, action: "onboarding.completed", entity_type: "business", entity_id: business.id, metadata: { name: parsed.name } });
   revalidatePath("/dashboard");
-  redirect(`/dashboard/businesses/${business.id}`);
+  return { businessId: business.id, slug, campaignToken: campaign.public_token };
 }
 
 async function uniqueBusinessSlug(name: string) {

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getOwnerBusiness } from "@/features/businesses/server/queries";
 import { deleteFeedbackAction, updateFeedbackResolutionAction } from "@/features/feedback/server/actions";
-import { Button } from "@/components/ui/button";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { Input } from "@/components/ui/input";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ export default async function BusinessFeedbackPage({ params }: { params: Promise
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("customer_feedback")
-    .select("*")
+    .select("id, rating, submitted_privately, original_notes, generated_draft, final_edited_text, resolution_status, internal_notes, created_at")
     .eq("business_id", id)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -39,15 +39,15 @@ export default async function BusinessFeedbackPage({ params }: { params: Promise
             </Td>
             <Td className="max-w-xs">{row.original_notes}</Td>
             <Td className="max-w-xs">{row.final_edited_text ?? row.generated_draft}</Td>
-            <Td><form action={updateFeedbackResolutionAction} className="space-y-2"><input type="hidden" name="id" value={row.id} /><input type="hidden" name="businessId" value={id} /><select name="status" defaultValue={row.resolution_status} className="h-8 rounded border bg-card px-2 text-xs"><option value="new">New</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select><Input name="internalNotes" defaultValue={row.internal_notes ?? ""} placeholder="Internal note" className="h-8 w-32 text-xs" /><Button size="sm" variant="outline">Save</Button></form></Td>
+            <Td><form action={updateFeedbackResolutionAction} className="space-y-2"><input type="hidden" name="id" value={row.id} /><input type="hidden" name="businessId" value={id} /><select name="status" defaultValue={row.resolution_status} className="h-8 rounded border bg-card px-2 text-xs"><option value="new">New</option><option value="in_progress">In progress</option><option value="resolved">Resolved</option></select><Input name="internalNotes" defaultValue={row.internal_notes ?? ""} placeholder="Internal note" className="h-8 w-32 text-xs" /><FormSubmitButton size="sm" variant="outline" loadingLabel="Saving…">Save</FormSubmitButton></form></Td>
             <Td>
               <form action={deleteFeedbackAction} className="flex gap-2">
                 <input type="hidden" name="id" value={row.id} />
                 <input type="hidden" name="businessId" value={id} />
                 <Input name="confirmation" placeholder="DELETE" className="h-8 w-24" />
-                <Button size="sm" variant="destructive">
+                <FormSubmitButton size="sm" variant="destructive" loadingLabel="Deleting…">
                   Delete
-                </Button>
+                </FormSubmitButton>
               </form>
             </Td>
           </Tr>
