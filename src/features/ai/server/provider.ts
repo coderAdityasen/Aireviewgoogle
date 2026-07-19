@@ -5,6 +5,7 @@ import {
   getDefaultReviewPromptConfig
 } from "@/features/ai/server/prompt";
 import { assertDraftGrounded, fallbackGroundedDrafts } from "@/features/ai/server/grounding";
+import type { ReviewResponseSettings } from "@/lib/validation/review-settings";
 
 export type ReviewGenerationInput = {
   businessName: string;
@@ -16,6 +17,7 @@ export type ReviewGenerationInput = {
   language: string;
   adminPrompt?: string;
   optionsCount?: 2 | 3;
+  responseSettings?: ReviewResponseSettings;
 };
 
 export async function generateReviewDraft(input: ReviewGenerationInput) {
@@ -73,7 +75,7 @@ export async function generateReviewDraft(input: ReviewGenerationInput) {
       },
       body: JSON.stringify({
         model: aiConfig.model,
-        temperature: 0.2,
+        temperature: input.responseSettings ? 0.12 + (input.responseSettings.creativity / 100) * 0.5 : 0.2,
         max_tokens: 900,
         response_format: { type: "json_object" },
         ...(process.env.OPENROUTER_DATA_COLLECTION === "deny" ? { provider: { data_collection: "deny" } } : {}),

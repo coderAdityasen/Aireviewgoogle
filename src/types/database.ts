@@ -64,6 +64,8 @@ export interface Business extends DbRecord {
   experience_tags: Json;
   low_rating_support_message: string | null;
   contact_fields: Json;
+  review_settings: Json;
+  poster_settings: Json;
   poster_headline: string | null;
   poster_template: "light" | "dark";
   google_place_id?: string | null;
@@ -178,7 +180,7 @@ export type Database = {
       profiles: Table<Profile, Partial<Profile> & { id: string }, Partial<Profile>>;
       businesses: Table<
         Business,
-        Omit<Business, "id" | "created_at" | "updated_at"> & { id?: string },
+        Omit<Business, "id" | "created_at" | "updated_at" | "review_settings" | "poster_settings"> & { id?: string; review_settings?: Json; poster_settings?: Json },
         Partial<Business>,
         [
           {

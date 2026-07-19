@@ -45,7 +45,7 @@ export default async function BusinessDetailPage({ params }: { params: Promise<{
         </CardContent>
       </Card>
       {firstCampaign ? (
-        <LazyQrPreview slug={business.slug} campaignToken={firstCampaign.public_token} businessName={business.name} logoUrl={business.logo_url} />
+        <LazyQrPreview businessId={business.id} ownerId={business.owner_id} slug={business.slug} campaignToken={firstCampaign.public_token} businessName={business.name} campaignName={firstCampaign.name} logoUrl={business.logo_url} brandColor={business.brand_color} posterHeadline={business.poster_headline} posterTemplate={business.poster_template} posterSettings={business.poster_settings} />
       ) : (
         <Card>
           <CardContent className="pt-5">Create a QR campaign to generate downloadable QR assets.</CardContent>

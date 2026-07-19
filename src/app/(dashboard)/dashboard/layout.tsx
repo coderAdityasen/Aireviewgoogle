@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [businesses, user, profile] = await Promise.all([getOwnerBusinesses(), getCurrentUser(), getCurrentProfile()]);
   return (
-    <AppShell mode="owner" title="Business dashboard" businesses={businesses} account={{ name: profile?.full_name, email: user?.email }}>
+    <AppShell mode="owner" title="Analytics Overview" businesses={businesses} account={{ name: profile?.full_name, email: user?.email }}>
       {children}
     </AppShell>
   );

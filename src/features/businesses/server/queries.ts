@@ -2,8 +2,8 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { requireActiveOwner } from "@/lib/auth/roles";
 
-const BUSINESS_SUMMARY_COLUMNS = "id, owner_id, name, slug, category, logo_url, brand_color, poster_headline, poster_template, google_review_url, is_active, created_at, updated_at";
-const BUSINESS_COLUMNS = "id, owner_id, name, slug, category, description, services, phone, email, website, address_line, city, state, country, logo_url, brand_color, google_review_url, default_language, experience_tags, low_rating_support_message, contact_fields, poster_headline, poster_template, is_active, created_at, updated_at";
+const BUSINESS_SUMMARY_COLUMNS = "id, owner_id, name, slug, category, logo_url, brand_color, poster_headline, poster_template, poster_settings, google_review_url, is_active, created_at, updated_at";
+const BUSINESS_COLUMNS = "id, owner_id, name, slug, category, description, services, phone, email, website, address_line, city, state, country, logo_url, brand_color, google_review_url, default_language, experience_tags, low_rating_support_message, contact_fields, review_settings, poster_headline, poster_template, poster_settings, is_active, created_at, updated_at";
 const CAMPAIGN_COLUMNS = "id, business_id, name, public_token, is_active, created_at, updated_at";
 
 export const getOwnerBusinesses = cache(async () => {

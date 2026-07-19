@@ -10,15 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { businessSchema } from "@/lib/validation/business";
-import { ratingTagText } from "@/lib/feedback/rating-tags";
 import { createBusinessAction, updateBusinessAction } from "@/features/businesses/server/actions";
 import type { Business } from "@/types/database";
 
 function servicesText(services: Business["services"] | undefined) {
   return Array.isArray(services) ? services.join("\n") : "";
 }
-
-const ratingFieldNames = { 1: "ratingTags1", 2: "ratingTags2", 3: "ratingTags3", 4: "ratingTags4", 5: "ratingTags5" } as const;
 
 export function BusinessForm({ business }: { business?: Business }) {
   const [pending, startTransition] = useTransition();
@@ -39,14 +36,7 @@ export function BusinessForm({ business }: { business?: Business }) {
       logoUrl: business?.logo_url ?? "",
       brandColor: business?.brand_color ?? "#0f766e",
       googleReviewUrl: business?.google_review_url ?? "",
-      defaultLanguage: business?.default_language ?? "en",
-      ratingTags1: ratingTagText(business?.experience_tags, 1),
-      ratingTags2: ratingTagText(business?.experience_tags, 2),
-      ratingTags3: ratingTagText(business?.experience_tags, 3),
-      ratingTags4: ratingTagText(business?.experience_tags, 4),
-      ratingTags5: ratingTagText(business?.experience_tags, 5),
-      lowRatingSupportMessage: business?.low_rating_support_message ?? "",
-      contactFields: servicesText(business?.contact_fields) || "name,email"
+      defaultLanguage: business?.default_language ?? "en"
     }
   });
 
@@ -109,14 +99,6 @@ export function BusinessForm({ business }: { business?: Business }) {
       </Field>
       <Field className="lg:col-span-2" label="Services or products" error={form.formState.errors.services?.message}>
         <Textarea {...form.register("services")} placeholder="One per line" />
-      </Field>
-      <div className="lg:col-span-2 rounded-2xl border border-primary/15 bg-primary/[0.03] p-4 sm:p-5"><div><p className="text-sm font-extrabold">Customer options by rating</p><p className="mt-1 text-xs font-medium leading-5 text-muted-foreground">Set the optional tags customers see after choosing each rating. One option per line. Use neutral or constructive wording for lower ratings.</p></div><div className="mt-4 grid gap-4 md:grid-cols-2">{([1, 2, 3, 4, 5] as const).map((rating) => { const fieldName = ratingFieldNames[rating]; return <Field key={rating} label={`${rating}-star options`} error={form.formState.errors[fieldName]?.message}><Textarea {...form.register(fieldName)} placeholder={rating >= 4 ? "Friendly service\nClear communication" : "What could be improved\nValue for money"} /></Field>; })}</div></div>
-      <Field className="lg:col-span-2" label="Low-rating support message (optional)" error={form.formState.errors.lowRatingSupportMessage?.message}>
-        <Textarea {...form.register("lowRatingSupportMessage")} placeholder="Tell us what we can improve and we will follow up privately." />
-      </Field>
-      <Field className="lg:col-span-2" label="Private follow-up fields" error={form.formState.errors.contactFields?.message}>
-        <Input {...form.register("contactFields")} placeholder="name,email" />
-        <p className="mt-1 text-xs text-muted-foreground">Comma-separated fields shown only when a customer chooses private follow-up: name, email, phone.</p>
       </Field>
       <div className="lg:col-span-2">
         <Button loading={pending} loadingLabel={business ? "Saving…" : "Creating…"}>{business ? "Save changes" : "Create business"}</Button>

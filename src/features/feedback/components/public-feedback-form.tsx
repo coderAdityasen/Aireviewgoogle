@@ -14,6 +14,8 @@ export function PublicFeedbackForm({
   business,
   campaignToken,
   experienceTags = {},
+  defaultTone = "friendly",
+  defaultReviewLength = "standard",
 }: {
   business: Pick<
     Business,
@@ -21,13 +23,15 @@ export function PublicFeedbackForm({
   >;
   campaignToken?: string | null;
   experienceTags?: RatingTagMap;
+  defaultTone?: Tone;
+  defaultReviewLength?: "short" | "standard" | "detailed";
 }) {
   const [visitorSessionId, setVisitorSessionId] = useState<string | null>(null);
   const [rating, setRating] = useState<number | null>(null);
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState("");
-  const [tone, setTone] = useState<Tone>("friendly");
+  const [tone, setTone] = useState<Tone>(defaultTone);
   const [drafts, setDrafts] = useState<string[]>([]);
   const [feedbackId, setFeedbackId] = useState("");
   const [selectedDraft, setSelectedDraft] = useState("");
@@ -128,7 +132,7 @@ export function PublicFeedbackForm({
           answers: { "Experience tags": selectedTags.join(", "), Tone: tone },
           originalNotes: "",
           preferredLanguage: business.default_language ?? "en",
-          reviewLength: "standard",
+          reviewLength: defaultReviewLength,
         }),
       });
       const json = await response.json();

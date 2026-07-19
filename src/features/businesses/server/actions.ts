@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { businessSchema } from "@/lib/validation/business";
 import { assertBusinessLimit, assertQrCampaignLimit, requirePaidOwner } from "@/lib/billing/entitlements";
 import { hasRatingTagFields, ratingTagsFromFields } from "@/lib/feedback/rating-tags";
+import { reviewResponseSettingsSchema } from "@/lib/validation/review-settings";
 
 function servicesToJson(services: string) {
   return services
@@ -130,12 +131,9 @@ export async function updateBusinessAction(businessId: string, input: unknown) {
       google_maps_url: parsed.googleMapsUrl || null,
       latitude: parsed.latitude ?? null,
       longitude: parsed.longitude ?? null,
-      default_language: parsed.defaultLanguage
-      ,experience_tags: experienceTagsToJson(parsed)
-      ,low_rating_support_message: parsed.lowRatingSupportMessage || null
-      ,contact_fields: servicesToJson(parsed.contactFields)
-      ,poster_headline: parsed.posterHeadline || null
-      ,poster_template: parsed.posterTemplate
+      default_language: parsed.defaultLanguage,
+      poster_headline: parsed.posterHeadline || null,
+      poster_template: parsed.posterTemplate
     })
     .eq("id", businessId)
     .eq("owner_id", user.id);
@@ -152,6 +150,38 @@ export async function updateBusinessAction(businessId: string, input: unknown) {
 
   revalidatePath("/dashboard/businesses");
   redirect(`/dashboard/businesses/${businessId}`);
+}
+
+export async function updateBusinessResponseSettingsAction(businessId: string, input: unknown) {
+  const { user } = await requirePaidOwner();
+  const parsed = reviewResponseSettingsSchema.parse(input);
+  const ratingTags = ratingTagsFromFields(parsed);
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("businesses")
+    .update({
+      experience_tags: ratingTags,
+      low_rating_support_message: parsed.lowRatingSupportMessage || null,
+      contact_fields: servicesToJson(parsed.contactFields).filter((field) => ["name", "email", "phone"].includes(field)),
+      review_settings: parsed
+    })
+    .eq("id", businessId)
+    .eq("owner_id", user.id);
+
+  if (error) throw error;
+
+  await createAdminClient().from("audit_logs").insert({
+    actor_id: user.id,
+    action: "business.response_settings_updated",
+    entity_type: "business",
+    entity_id: businessId,
+    metadata: { tone: parsed.tone, reviewLength: parsed.reviewLength }
+  });
+
+  revalidatePath(`/dashboard/businesses/${businessId}/edit`);
+  revalidatePath("/dashboard");
+  revalidatePath("/r/[businessSlug]", "page");
+  return { ok: true };
 }
 
 export async function deleteBusinessAction(businessId: string, confirmation: string) {

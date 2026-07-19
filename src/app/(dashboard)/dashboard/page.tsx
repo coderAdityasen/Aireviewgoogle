@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requirePaidOwner } from "@/lib/billing/entitlements";
 import { getOwnerBusinesses } from "@/features/businesses/server/queries";
+import { Icon } from "@/components/ui/icon";
 
 export default async function DashboardPage() {
   const [metrics, owner, ownerBusinesses] = await Promise.all([getOwnerDashboardMetrics(), requirePaidOwner(), getOwnerBusinesses()]);
@@ -20,7 +21,12 @@ export default async function DashboardPage() {
   }
 
   return <div className="space-y-7">
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><MetricCard label="QR scans" value={metrics.counts.qr_scan} /><MetricCard label="Google page opens" value={metrics.counts.google_redirect_clicked} hint="A page open does not prove a review was published." /><MetricCard label="Drafts copied" value={metrics.counts.review_copied} /><MetricCard label="Private feedback" value={metrics.counts.private_feedback_submitted} /></div>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricCard label="Total QR Scans" value={metrics.counts.qr_scan} hint="Tracked QR and campaign scans" icon={<Icon name="qr" className="h-6 w-6" />} iconClassName="text-slate-500" />
+      <MetricCard label="Google Review Page Opens" value={metrics.counts.google_redirect_clicked} hint="A page open does not confirm publication" icon={<Icon name="externalLink" className="h-6 w-6" />} iconClassName="text-blue-600" />
+      <MetricCard label="Average Star Rating" value={metrics.averageRating ? `${metrics.averageRating.toFixed(1)}★` : "—"} hint="Based on customer-selected ratings" icon={<Icon name="star" className="h-6 w-6 fill-current" />} iconClassName="text-amber-500" />
+      <MetricCard label="Private Feedback" value={metrics.counts.private_feedback_submitted} hint="Direct customer messages" icon={<Icon name="message" className="h-6 w-6" />} iconClassName="text-rose-500" />
+    </div>
 
     <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
       <Card><CardHeader><CardTitle>Activity</CardTitle><p className="mt-1 text-sm font-medium text-muted-foreground">Scans and Google page opens across your active flows.</p></CardHeader><CardContent>{metrics.counts.qr_scan ? <LazyActivityChart data={metrics.activity} /> : <EmptyState title="Your flow is ready" description="Analytics will appear after customers scan your QR code." action={{ href: "/dashboard/qr-posters", label: "Download QR" }} />}</CardContent></Card>

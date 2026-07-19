@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getClientIp, hashIp } from "@/lib/security/ip";
 import { assertRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import { assertAiUsageLimit, recordUsage } from "@/lib/billing/entitlements";
+import { instructionsForRating, parseReviewResponseSettings, ratingRuleFor } from "@/lib/feedback/response-settings";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -49,6 +50,15 @@ export async function POST(request: NextRequest) {
     .eq("setting_key", REVIEW_PROMPT_SETTING_KEY)
     .maybeSingle();
   const promptConfig = parseReviewPromptConfig(promptSetting?.setting_value);
+  const responseSettings = parseReviewResponseSettings(business.review_settings);
+  const configuredGuidance = [
+    `Rating-specific guidance: ${ratingRuleFor(responseSettings, parsed.data.rating)}`,
+    `Owner writing guidance: ${instructionsForRating(responseSettings, parsed.data.rating)}`,
+    `Configured tone: ${responseSettings.tone}`,
+    `Configured perspective: ${responseSettings.writingPerspective}`,
+    responseSettings.mentionSelectedTags ? "Use customer-selected tags when they fit the customer's input." : "Do not add or emphasize tags beyond the customer's input.",
+    responseSettings.avoidGenericPhrases ? "Avoid generic praise or complaints." : ""
+  ].filter(Boolean).join("\n");
 
   await recordEvent({
     businessId: business.id,
@@ -67,8 +77,9 @@ export async function POST(request: NextRequest) {
       notes: parsed.data.originalNotes,
       length: parsed.data.reviewLength,
       language: parsed.data.preferredLanguage,
-      adminPrompt: promptConfig.prompt,
-      optionsCount: promptConfig.optionsCount
+      adminPrompt: `${promptConfig.prompt}\n\nBusiness response settings:\n${configuredGuidance}`,
+      optionsCount: promptConfig.optionsCount,
+      responseSettings
     });
   } catch (error) {
     await admin.from("ai_usage_logs").insert({

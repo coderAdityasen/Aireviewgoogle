@@ -38,9 +38,34 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, loading = false, loadingLabel = "Working…", children, disabled, ...props }, ref) => {
+  (
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      loading = false,
+      loadingLabel = "Working…",
+      children,
+      disabled,
+      ...props
+    },
+    ref,
+  ) => {
     const Comp = asChild ? Slot : "button";
-    if (asChild) return <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props}>{children}</Comp>;
+
+    if (asChild) {
+      return (
+        <Comp
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          {...props}
+        >
+          {children}
+        </Comp>
+      );
+    }
+
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
@@ -49,11 +74,19 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={loading || disabled}
         aria-busy={loading || undefined}
       >
-        {loading ? <ButtonSpinner label={loadingLabel} /> : null}
-        <span>{loading ? loadingLabel : children}</span>
+        {loading ? (
+          <span className="inline-flex items-center justify-center gap-2">
+            <ButtonSpinner label={loadingLabel} />
+            <span>{loadingLabel}</span>
+          </span>
+        ) : (
+          <span className="inline-flex items-center justify-center gap-2">
+            {children}
+          </span>
+        )}
       </Comp>
     );
-  }
+  },
 );
 Button.displayName = "Button";
 

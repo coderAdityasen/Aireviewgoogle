@@ -9,7 +9,7 @@ export async function getPublicBusiness(slug: string, campaignToken?: string | n
   const admin = createAdminClient();
   const { data: business, error } = await admin
     .from("businesses")
-    .select("id, owner_id, name, slug, category, description, logo_url, brand_color, default_language, google_review_url, experience_tags, low_rating_support_message, contact_fields, is_active")
+    .select("id, owner_id, name, slug, category, description, logo_url, brand_color, default_language, google_review_url, experience_tags, low_rating_support_message, contact_fields, review_settings, is_active")
     .eq("slug", slug)
     .eq("is_active", true)
     .maybeSingle();

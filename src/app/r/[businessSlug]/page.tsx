@@ -2,6 +2,7 @@ import Image from "next/image";
 import { PublicFeedbackForm } from "@/features/feedback/components/public-feedback-form";
 import { getPublicBusiness } from "@/features/feedback/server/public";
 import { normalizeRatingTags } from "@/lib/feedback/rating-tags";
+import { parseReviewResponseSettings } from "@/lib/feedback/response-settings";
 
 export default async function PublicReviewPage({
   params,
@@ -23,6 +24,8 @@ export default async function PublicReviewPage({
     );
   }
 
+  const responseSettings = parseReviewResponseSettings(business.review_settings);
+
   return (
     <main className="min-h-screen bg-[#eef3fb] px-4 py-6 sm:py-10" style={{ "--color-primary": business.brand_color } as React.CSSProperties}>
       <div className="mx-auto max-w-[520px]">
@@ -34,7 +37,7 @@ export default async function PublicReviewPage({
           <h1 className="mt-1 text-2xl font-extrabold tracking-[-0.055em] text-[#101b32]">{business.name}</h1>
           <p className="mt-1 text-sm font-semibold text-[#6c7c95]">{business.category}</p>
           </header>
-        <PublicFeedbackForm business={business} campaignToken={campaign} experienceTags={normalizeRatingTags(business.experience_tags)} />
+        <PublicFeedbackForm business={business} campaignToken={campaign} experienceTags={normalizeRatingTags(business.experience_tags)} defaultTone={responseSettings.tone} defaultReviewLength={responseSettings.reviewLength} />
       </div>
     </main>
   );

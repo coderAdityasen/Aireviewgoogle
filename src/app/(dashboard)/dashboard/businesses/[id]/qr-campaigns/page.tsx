@@ -39,7 +39,7 @@ export default async function QrCampaignsPage({ params }: { params: Promise<{ id
             </div>
           </CardHeader>
           <CardContent>
-            <LazyQrPreview slug={business.slug} campaignToken={campaign.public_token} businessName={`${business.name}-${campaign.name}`} logoUrl={business.logo_url} />
+            <LazyQrPreview businessId={business.id} ownerId={business.owner_id} slug={business.slug} campaignToken={campaign.public_token} businessName={business.name} campaignName={campaign.name} logoUrl={business.logo_url} brandColor={business.brand_color} posterHeadline={business.poster_headline} posterTemplate={business.poster_template} posterSettings={business.poster_settings} />
           </CardContent>
         </Card>
       ))}
