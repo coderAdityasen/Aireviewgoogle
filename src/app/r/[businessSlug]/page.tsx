@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { PublicFeedbackForm } from "@/features/feedback/components/public-feedback-form";
 import { getPublicBusiness } from "@/features/feedback/server/public";
+import { normalizeRatingTags } from "@/lib/feedback/rating-tags";
 
 export default async function PublicReviewPage({
   params,
@@ -23,17 +24,17 @@ export default async function PublicReviewPage({
   }
 
   return (
-    <main className="min-h-screen px-4 py-8" style={{ "--color-primary": business.brand_color } as React.CSSProperties}>
-      <div className="mx-auto max-w-2xl">
-        <header className="mb-6 rounded-md border bg-card p-5 text-center">
+    <main className="min-h-screen bg-[#eef3fb] px-4 py-6 sm:py-10" style={{ "--color-primary": business.brand_color } as React.CSSProperties}>
+      <div className="mx-auto max-w-[520px]">
+        <div className="mb-4 flex items-center justify-center"><span className="rounded-full border border-[#9bc0ff] bg-white px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#2463f3]">Live customer flow</span></div>
+        <header className="rounded-t-[2rem] border-x-8 border-t-8 border-[#15233e] bg-[#f8fafc] px-6 py-6 text-center">
           {business.logo_url ? (
             <Image src={business.logo_url} width={72} height={72} alt={`${business.name} logo`} className="mx-auto rounded-md object-contain" />
           ) : null}
-          <h1 className="mt-3 text-2xl font-semibold">{business.name}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{business.category}</p>
-          {business.description ? <p className="mt-3 text-sm text-muted-foreground">{business.description}</p> : null}
-        </header>
-        <PublicFeedbackForm business={business} campaignToken={campaign} experienceTags={Array.isArray(business.experience_tags) ? business.experience_tags.filter((field): field is string => typeof field === "string") : []} contactFields={Array.isArray(business.contact_fields) ? business.contact_fields.filter((field): field is string => typeof field === "string") : []} lowRatingSupportMessage={business.low_rating_support_message} />
+          <h1 className="mt-1 text-2xl font-extrabold tracking-[-0.055em] text-[#101b32]">{business.name}</h1>
+          <p className="mt-1 text-sm font-semibold text-[#6c7c95]">{business.category}</p>
+          </header>
+        <PublicFeedbackForm business={business} campaignToken={campaign} experienceTags={normalizeRatingTags(business.experience_tags)} />
       </div>
     </main>
   );

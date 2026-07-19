@@ -48,7 +48,7 @@ export async function getAdminOwners() {
 
 export async function getAdminBusinesses(q?: string) {
   const admin = createAdminClient();
-  let query = admin.from("businesses").select("id, owner_id, name, category, phone, website, google_review_url, is_active, created_at, profiles(full_name, account_status)").order("created_at", { ascending: false });
+  let query = admin.from("businesses").select("id, owner_id, name, category, phone, website, google_review_url, experience_tags, low_rating_support_message, contact_fields, is_active, created_at, profiles(full_name, account_status)").order("created_at", { ascending: false });
   if (q) query = query.or(`name.ilike.%${q}%,category.ilike.%${q}%`);
   const { data, error } = await query;
   if (error) throw error;

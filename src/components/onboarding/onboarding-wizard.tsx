@@ -210,11 +210,11 @@ export function OnboardingWizard({ ownerId, planKey, initial }: { ownerId: strin
   if (published) return <OnboardingSuccess data={data} published={published} onDashboard={() => router.replace("/dashboard")} />;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-7">
       <OnboardingStepper currentStep={step} completedSteps={completed} />
-      <section className="rounded-3xl border bg-card p-5 shadow-sm sm:p-8">
+      <section className="rounded-[2rem] border border-transparent bg-card p-6 shadow-[0_24px_65px_rgba(35,52,84,0.1)] sm:p-10">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div><p className="text-sm font-medium text-primary">Step {step} of 3</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">{step === 1 ? "Find your business on Google" : step === 2 ? "Confirm your campaign" : "Test and launch"}</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{step === 1 ? "Search for your business to automatically configure your review campaign." : step === 2 ? "Review the destination customers will open and adjust the essentials. You can customize the poster later." : "Make sure the customer path feels right, then publish your first campaign."}</p></div>
+          <div><p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-primary">Step {step} of 3</p><h1 className="mt-2 text-2xl font-extrabold tracking-[-0.055em] sm:text-3xl">{step === 1 ? "Find your business on Google" : step === 2 ? "Confirm your campaign" : "Test and launch"}</h1><p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-muted-foreground">{step === 1 ? "Search for your business to automatically configure your review campaign." : step === 2 ? "Review the destination customers will open and adjust the essentials. You can customize the poster later." : "Make sure the customer path feels right, then publish your first campaign."}</p></div>
           <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium capitalize">{planKey} plan</span>
         </div>
 

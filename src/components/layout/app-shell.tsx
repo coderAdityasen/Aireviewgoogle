@@ -6,17 +6,19 @@ export function AppShell({
   children,
   mode,
   title,
-  businesses
+  businesses,
+  account
 }: {
   children: React.ReactNode;
   mode: "owner" | "admin";
   title: string;
   businesses?: Array<Pick<Business, "id" | "name" | "is_active">>;
+  account?: { name?: string | null; email?: string | null };
 }) {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-clip">
       <AppSidebar mode={mode} />
-      <div className="lg:pl-[270px]"><main className="mx-auto max-w-[1440px] px-4 py-0 sm:px-6 lg:px-8"><DashboardHeader title={title} mode={mode} businesses={businesses} />{children}</main></div>
+      <div className="min-w-0 lg:pl-[252px]"><main className="mx-auto min-w-0 max-w-[1500px] px-4 py-0 sm:px-7 lg:px-10"><DashboardHeader title={title} mode={mode} businesses={businesses} account={account} />{children}</main></div>
     </div>
   );
 }

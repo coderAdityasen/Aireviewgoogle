@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
+import { Manrope } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap"
+});
 
 export const metadata: Metadata = {
   title: "ReviewFlow",
@@ -10,7 +17,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>
+      <body className={manrope.variable}>
         {children}
         <Toaster richColors closeButton />
       </body>

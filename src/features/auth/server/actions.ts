@@ -21,7 +21,9 @@ export async function signInAction(_: unknown, formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error) return { ok: false, message: error.message };
-  redirect(next !== "/dashboard" ? next : plan ? `/billing/checkout?plan=${encodeURIComponent(plan)}` : next);
+  const selectedPlanDestination = plan ? `/billing/checkout?plan=${encodeURIComponent(plan)}` : null;
+  const destination = selectedPlanDestination && (next === "/dashboard" || next === "/" || next === "/pricing") ? selectedPlanDestination : next;
+  redirect(destination);
 }
 
 export async function signUpAction(_: unknown, formData: FormData) {
@@ -31,6 +33,7 @@ export async function signUpAction(_: unknown, formData: FormData) {
     password: formData.get("password")
   });
   const plan = String(formData.get("plan") ?? "");
+  const next = safeLocalRedirect(String(formData.get("next") ?? ""));
 
   if (!parsed.success) {
     return { ok: false, message: "Enter your name, a valid email and a password with at least 8 characters." };
@@ -47,7 +50,7 @@ export async function signUpAction(_: unknown, formData: FormData) {
   });
 
   if (error) return { ok: false, message: error.message };
-  redirect(`/login?checkEmail=1${plan ? `&plan=${encodeURIComponent(plan)}` : ""}`);
+  redirect(`/login?checkEmail=1${plan ? `&plan=${encodeURIComponent(plan)}` : ""}${next !== "/dashboard" ? `&next=${encodeURIComponent(next)}` : ""}`);
 }
 
 export async function resetPasswordAction(_: unknown, formData: FormData) {

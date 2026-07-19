@@ -18,6 +18,8 @@ const actions = {
 export function AuthForm({ mode, next, plan }: { mode: Mode; next?: string; plan?: string }) {
   const [state, formAction, pending] = useActionState(actions[mode], { ok: false, message: "" });
   const [showPassword, setShowPassword] = useState(false);
+  const loginHref = `/login${next || plan ? `?${new URLSearchParams({ ...(next ? { next } : {}), ...(plan ? { plan } : {}) }).toString()}` : ""}`;
+  const signupHref = `/signup${next || plan ? `?${new URLSearchParams({ ...(next ? { next } : {}), ...(plan ? { plan } : {}) }).toString()}` : ""}`;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -54,18 +56,18 @@ export function AuthForm({ mode, next, plan }: { mode: Mode; next?: string; plan
         {mode === "login" ? "Log in" : mode === "signup" ? "Create account" : "Send reset link"}
       </Button>
       <div className="text-center text-sm text-muted-foreground">
-        {mode === "login" ? (
+      {mode === "login" ? (
           <>
             <Link className="underline" href="/forgot-password">
               Forgot password
             </Link>{" "}
             ·{" "}
-            <Link className="underline" href="/signup">
+            <Link className="underline" href={signupHref}>
               Create account
             </Link>
           </>
         ) : (
-          <Link className="underline" href="/login">
+          <Link className="underline" href={loginHref}>
             Back to login
           </Link>
         )}

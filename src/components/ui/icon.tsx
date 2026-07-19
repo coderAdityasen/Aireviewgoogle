@@ -1,12 +1,17 @@
 "use client";
 
-import { CheckCircle2, LogOut, QrCode, ShieldCheck, type LucideIcon } from "lucide-react";
+import { ArrowRight, Check, CheckCircle2, ExternalLink, LogOut, QrCode, Settings, ShieldCheck, Store, type LucideIcon } from "lucide-react";
 
 const icons = {
   check: CheckCircle2,
+  arrowRight: ArrowRight,
+  checkSmall: Check,
+  externalLink: ExternalLink,
   logout: LogOut,
   qr: QrCode,
-  shield: ShieldCheck
+  settings: Settings,
+  shield: ShieldCheck,
+  store: Store
 } satisfies Record<string, LucideIcon>;
 
 export function Icon({ name, className }: { name: keyof typeof icons; className?: string }) {

@@ -59,3 +59,15 @@ export async function setQrCampaignActiveAction(campaignId: string, businessId: 
 
   revalidatePath(`/dashboard/businesses/${businessId}/qr-campaigns`);
 }
+
+export async function updatePosterSettingsAction(businessId: string, input: { brandColor: string; posterHeadline: string; posterTemplate: "light" | "dark" }) {
+  const { user } = await requirePaidOwner();
+  if (!/^#[0-9A-Fa-f]{6}$/.test(input.brandColor)) throw new Error("Choose a valid brand color.");
+  if (input.posterHeadline.trim().length < 2 || input.posterHeadline.trim().length > 160) throw new Error("Add a poster headline between 2 and 160 characters.");
+  const supabase = await createClient();
+  const { error } = await supabase.from("businesses").update({ brand_color: input.brandColor, poster_headline: input.posterHeadline.trim(), poster_template: input.posterTemplate }).eq("id", businessId).eq("owner_id", user.id);
+  if (error) throw error;
+  await createAdminClient().from("audit_logs").insert({ actor_id: user.id, action: "business.poster_settings_updated", entity_type: "business", entity_id: businessId, metadata: { poster_template: input.posterTemplate } });
+  revalidatePath("/dashboard/qr-posters");
+  revalidatePath(`/dashboard/businesses/${businessId}/edit`);
+}

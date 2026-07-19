@@ -5,21 +5,21 @@ import { cn } from "@/lib/utils";
 import { ButtonSpinner } from "@/components/ui/loading-states";
 
 const buttonVariants = cva(
-  "inline-flex h-10 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        default: "bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(36,99,243,0.2)] hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-[0_10px_24px_rgba(36,99,243,0.25)]",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90",
-        outline: "border bg-card hover:bg-muted",
-        ghost: "hover:bg-muted",
+        outline: "border border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5 hover:text-primary",
+        ghost: "text-muted-foreground hover:bg-muted hover:text-foreground",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90"
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-8 px-3 text-xs",
-        lg: "h-11 px-5",
-        icon: "h-10 w-10 px-0"
+        default: "h-11 px-5 py-2.5",
+        sm: "h-10 px-4 text-xs",
+        lg: "h-12 px-6",
+        icon: "h-11 w-11 px-0"
       }
     },
     defaultVariants: {

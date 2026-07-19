@@ -1,68 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, ExternalLink, Star } from "lucide-react";
+import { Copy, ExternalLink, Sparkles, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import type { Business } from "@/types/database";
+import type { RatingTagMap } from "@/lib/feedback/rating-tags";
 
-const defaultTags = ["Service", "Product quality", "Communication", "Value", "Atmosphere", "Convenience"];
-
-type SpeechRecognitionLike = {
-  lang: string;
-  interimResults: boolean;
-  onstart: (() => void) | null;
-  onend: (() => void) | null;
-  onerror: (() => void) | null;
-  onresult: ((event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
-  start(): void;
-};
-
-declare global {
-  interface Window {
-    SpeechRecognition?: new () => SpeechRecognitionLike;
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-  }
-}
+type Tone = "friendly" | "professional" | "warm" | "concise";
 
 export function PublicFeedbackForm({
   business,
   campaignToken,
-  experienceTags = [],
-  contactFields = [],
-  lowRatingSupportMessage
+  experienceTags = {},
 }: {
-  business: Pick<Business, "name" | "slug" | "brand_color" | "default_language">;
+  business: Pick<
+    Business,
+    "name" | "slug" | "brand_color" | "default_language"
+  >;
   campaignToken?: string | null;
-  experienceTags?: string[];
-  contactFields?: string[];
-  lowRatingSupportMessage?: string | null;
+  experienceTags?: RatingTagMap;
 }) {
   const [visitorSessionId, setVisitorSessionId] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
-  const [experience, setExperience] = useState("");
+  const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [language, setLanguage] = useState(business.default_language ?? "en");
-  const [length, setLength] = useState<"short" | "standard" | "detailed">("standard");
+  const [customTag, setCustomTag] = useState("");
+  const [tone, setTone] = useState<Tone>("friendly");
   const [drafts, setDrafts] = useState<string[]>([]);
   const [feedbackId, setFeedbackId] = useState("");
   const [selectedDraft, setSelectedDraft] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [streamingSource, setStreamingSource] = useState("");
+  const [displayedDraft, setDisplayedDraft] = useState("");
+  const [streaming, setStreaming] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [copying, setCopying] = useState(false);
   const [openingGoogle, setOpeningGoogle] = useState(false);
-  const [submittingPrivate, setSubmittingPrivate] = useState(false);
-  const [listening, setListening] = useState(false);
-  const [contact, setContact] = useState({ name: "", email: "", phone: "" });
-  const [contactConsent, setContactConsent] = useState(false);
-
-  const availableTags = experienceTags.length ? experienceTags : defaultTags;
-  const canGenerate = confirmed && rating !== null && experience.trim().length >= 15;
+  const canGenerate = rating !== null;
   const isLowRating = rating !== null && rating <= 3;
+  const ratingTags =
+    rating === null ? [] : (experienceTags[rating as keyof RatingTagMap] ?? []);
+  const tagOptions = [...new Set([...ratingTags, ...selectedTags])];
+  const draftText = streaming ? displayedDraft : selectedDraft;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -70,7 +50,7 @@ export function PublicFeedbackForm({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ businessSlug: business.slug, campaignToken }),
-      signal: controller.signal
+      signal: controller.signal,
     })
       .then((response) => (response.ok ? response.json() : null))
       .then((json) => setVisitorSessionId(json?.visitorSessionId ?? null))
@@ -78,15 +58,60 @@ export function PublicFeedbackForm({
     return () => controller.abort();
   }, [business.slug, campaignToken]);
 
-  function toggleTag(tag: string) {
-    setSelectedTags((current) => (current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag]));
+  useEffect(() => {
+    if (!streaming || !streamingSource) return;
+    let position = 0;
+    const timer = window.setInterval(() => {
+      position = Math.min(
+        streamingSource.length,
+        position + Math.max(2, Math.ceil(streamingSource.length / 80)),
+      );
+      setDisplayedDraft(streamingSource.slice(0, position));
+      if (position >= streamingSource.length) {
+        window.clearInterval(timer);
+        setStreaming(false);
+      }
+    }, 22);
+    return () => window.clearInterval(timer);
+  }, [streaming, streamingSource]);
+
+  function resetDraft() {
+    setDrafts([]);
+    setSelectedDraft("");
+    setFeedbackId("");
+    setStreaming(false);
+    setStreamingSource("");
+    setDisplayedDraft("");
   }
 
-  async function generateDrafts() {
+  function chooseRating(value: number) {
+    setRating(value);
+    setHoveredRating(null);
+    setSelectedTags([]);
+    setCustomTag("");
+    resetDraft();
+  }
+
+  function toggleTag(tag: string) {
+    setSelectedTags((current) =>
+      current.includes(tag)
+        ? current.filter((item) => item !== tag)
+        : [...current, tag],
+    );
+    resetDraft();
+  }
+
+  function addCustomTag() {
+    const value = customTag.trim().replace(/\s+/g, " ");
+    if (!value || value.length > 120 || selectedTags.includes(value)) return;
+    setSelectedTags((current) => [...current, value]);
+    setCustomTag("");
+    resetDraft();
+  }
+
+  async function generateDraft() {
     if (!canGenerate || rating === null) return;
-    setCopied(false);
-    setSelectedDraft("");
-    setDrafts([]);
+    resetDraft();
     setGenerating(true);
     try {
       const response = await fetch("/api/ai/review-draft", {
@@ -97,155 +122,334 @@ export function PublicFeedbackForm({
           campaignToken,
           visitorSessionId,
           rating,
+          tone,
           consentConfirmed: true,
           genuineInteractionConfirmed: true,
-          answers: { "Experience tags": selectedTags.join(", ") },
-          originalNotes: experience,
-          preferredLanguage: language,
-          reviewLength: length
-        })
+          answers: { "Experience tags": selectedTags.join(", "), Tone: tone },
+          originalNotes: "",
+          preferredLanguage: business.default_language ?? "en",
+          reviewLength: "standard",
+        }),
       });
       const json = await response.json();
-      if (!response.ok) {
-        toast.error(json.error ?? "Unable to generate grounded review options.");
-        return;
-      }
-      setDrafts(Array.isArray(json.drafts) ? json.drafts : []);
+      if (!response.ok)
+        throw new Error(json.error ?? "Unable to generate a grounded review.");
+      const nextDrafts = Array.isArray(json.drafts)
+        ? json.drafts.filter(
+            (draft: unknown): draft is string =>
+              typeof draft === "string" && draft.trim().length >= 10,
+          )
+        : [];
+      if (!nextDrafts.length)
+        throw new Error("No review draft was returned. Please try again.");
+      const firstDraft = nextDrafts[0];
+      setDrafts(nextDrafts);
+      setSelectedDraft(firstDraft);
       setFeedbackId(json.feedbackId ?? "");
-    } catch {
-      toast.error("The review assistant is temporarily unavailable.");
+      setStreamingSource(firstDraft);
+      setDisplayedDraft("");
+      setStreaming(true);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "The review assistant is temporarily unavailable.",
+      );
     } finally {
       setGenerating(false);
     }
   }
 
-  function startVoiceInput() {
-    const Recognition = window.SpeechRecognition ?? window.webkitSpeechRecognition;
-    if (!Recognition) {
-      toast.info("Voice input is not available in this browser. You can type below.");
-      return;
+  async function recordCopy() {
+    let copiedToClipboard = false;
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard API unavailable.");
+      await navigator.clipboard.writeText(selectedDraft);
+      copiedToClipboard = true;
+    } catch {
+      // Clipboard permissions can be unavailable in some browsers or contexts.
+      // The copy event is still recorded and the customer can copy from the
+      // editable draft before continuing to Google.
     }
-    const recognition = new Recognition();
-    recognition.lang = language || "en-IN";
-    recognition.interimResults = false;
-    recognition.onstart = () => setListening(true);
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => {
-      setListening(false);
-      toast.error("Voice input could not be started.");
-    };
-    recognition.onresult = (event) => setExperience((current) => `${current} ${event.results[0][0].transcript}`.trim());
-    recognition.start();
+
+    const response = await fetch("/api/events/copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ feedbackId, finalEditedText: selectedDraft }),
+    });
+    if (!response.ok) throw new Error("We could not record that copy action.");
+    return copiedToClipboard;
   }
 
-  async function copyReview(draft: string) {
+  async function copyOnly() {
+    if (selectedDraft.trim().length < 10 || streaming) return;
     setCopying(true);
     try {
-      await navigator.clipboard.writeText(draft);
-      const response = await fetch("/api/events/copy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedbackId, finalEditedText: draft })
-      });
-      if (!response.ok) throw new Error("We could not record that copy action.");
-      setSelectedDraft(draft);
-      setCopied(true);
-      toast.success("Review text copied.");
+      const copiedToClipboard = await recordCopy();
+      toast.success(
+        copiedToClipboard
+          ? "Answer copied."
+          : "Answer saved. Copy it from the draft before continuing.",
+      );
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Review text could not be copied.");
+      toast.error(
+        error instanceof Error ? error.message : "Answer could not be copied.",
+      );
     } finally {
       setCopying(false);
     }
   }
 
-  async function continueToGoogle() {
+  async function copyAndContinueToGoogle() {
+    if (selectedDraft.trim().length < 10 || !feedbackId || streaming) return;
     setOpeningGoogle(true);
+
+    // Reserve the tab while this function is still running directly from the
+    // user's click. Opening it after fetch/clipboard awaits is commonly blocked
+    // by browser popup protection.
+    const googleWindow = window.open("about:blank", "_blank");
+    if (googleWindow) googleWindow.opener = null;
+
     try {
+      const copiedToClipboard = await recordCopy();
       const response = await fetch("/api/events/redirect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedbackId })
+        body: JSON.stringify({ feedbackId }),
       });
       const json = await response.json();
-      if (!response.ok) throw new Error(json.error ?? "Unable to open the Google review page.");
-      window.open(json.url, "_blank", "noopener,noreferrer");
-      window.location.href = `/r/${business.slug}/success`;
+      if (!response.ok)
+        throw new Error(json.error ?? "Unable to open the Google review page.");
+
+      if (googleWindow && !googleWindow.closed) {
+        googleWindow.location.assign(json.url);
+        window.location.assign(`/r/${business.slug}/success`);
+      } else {
+        // If the browser blocked the new tab, keep the customer moving in the
+        // current tab instead of silently doing nothing.
+        window.location.assign(json.url);
+      }
+
+      if (!copiedToClipboard) {
+        toast.info(
+          "Google is opening. Copy the draft from the previous page if needed.",
+        );
+      }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to open the Google review page.");
+      googleWindow?.close();
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to open the Google review page.",
+      );
       setOpeningGoogle(false);
     }
   }
 
-  async function submitPrivate() {
-    if (!feedbackId) {
-      toast.error("Generate or write your review before sending private feedback.");
-      return;
-    }
-    if (contactFields.length && !contactConsent) {
-      toast.error("Confirm that you want the business to contact you.");
-      return;
-    }
-    setSubmittingPrivate(true);
-    try {
-      const response = await fetch("/api/feedback/private", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          feedbackId,
-          finalEditedText: selectedDraft || experience,
-          customerName: contact.name || undefined,
-          customerEmail: contact.email || undefined,
-          customerPhone: contact.phone || undefined
-        })
-      });
-      if (!response.ok) throw new Error("Unable to send private feedback.");
-      toast.success("Private feedback sent to the business.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to send private feedback.");
-    } finally {
-      setSubmittingPrivate(false);
-    }
-  }
+  const generated = drafts.length > 0;
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-2xl border bg-card p-5">
-        <p className="text-sm font-medium text-muted-foreground">Step 1</p>
-        <h2 className="mt-1 text-lg font-semibold">Was this a genuine customer experience?</h2>
-        <label className="mt-4 flex cursor-pointer gap-3 text-sm">
-          <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} className="mt-1 h-4 w-4" />
-          Yes, I am sharing what actually happened and understand I can edit or write my own review.
-        </label>
-      </section>
-
-      <section className="rounded-2xl border bg-card p-5">
-        <p className="text-sm font-medium text-muted-foreground">Step 2</p>
-        <Label>How would you rate the experience?</Label>
-        <div className="mt-3 flex gap-2" role="radiogroup" aria-label="Experience rating">
-          {[1, 2, 3, 4, 5].map((value) => <button key={value} type="button" role="radio" aria-label={`${value} ${value === 1 ? "star" : "stars"}`} aria-checked={rating === value} className="rounded-xl border p-2 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => setRating(value)} style={rating !== null && value <= rating ? { color: business.brand_color } : undefined}><Star className={rating !== null && value <= rating ? "h-7 w-7 fill-current" : "h-7 w-7"} /></button>)}
+    <section className="mx-auto max-w-[520px] overflow-hidden rounded-b-[2rem] border-x-8 border-b-8 border-[#15233e] bg-white shadow-[0_22px_70px_rgba(24,44,78,0.12)]">
+      <div className="px-5 py-8 sm:px-8 sm:py-10">
+        <div className="text-center">
+          <h2 className="text-3xl font-extrabold leading-tight tracking-[-0.07em] text-[#101b32]">
+            How was your experience?
+          </h2>
+          <p className="mt-2 text-sm font-medium text-[#6c7c95]">
+            Tap a star to rate your visit.
+          </p>
         </div>
-      </section>
+        <div
+          className="mt-7 flex justify-center gap-1.5"
+          role="radiogroup"
+          aria-label="Experience rating"
+        >
+          {[1, 2, 3, 4, 5].map((value) => {
+            const filled = value <= (hoveredRating ?? rating ?? 0);
+            const highlighted = value <= (hoveredRating ?? rating ?? 0);
+            return (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-label={`${value} ${value === 1 ? "star" : "stars"}`}
+                aria-checked={rating === value}
+                onMouseEnter={() => setHoveredRating(value)}
+                onMouseLeave={() => setHoveredRating(null)}
+                onFocus={() => setHoveredRating(value)}
+                onBlur={() => setHoveredRating(null)}
+                onClick={() => chooseRating(value)}
+                className="rounded-full p-1 transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f5b400] focus-visible:ring-offset-2"
+                style={{ color: highlighted ? "#f5b400" : "#cbd5e1" }}
+              >
+                <Star
+                  className={`h-11 w-11 sm:h-12 sm:w-12 ${filled ? "fill-current" : ""}`}
+                  strokeWidth={highlighted ? 1.5 : 2}
+                />
+              </button>
+            );
+          })}
+        </div>
 
-      {rating !== null ? <section className="space-y-4 rounded-2xl border bg-card p-5">
-        <div><p className="text-sm font-medium text-muted-foreground">Step 3</p><h2 className="mt-1 text-lg font-semibold">Describe your experience in your own words</h2><p className="mt-1 text-sm text-muted-foreground">Only details you provide or select are used. A {rating}-star rating stays a {rating}-star rating.</p></div>
-        <div><Label htmlFor="experience">What happened?</Label><div className="mt-2 flex items-start gap-2"><Textarea id="experience" value={experience} onChange={(event) => setExperience(event.target.value)} placeholder="Share what really happened — good, bad or somewhere in between." className="min-h-32" /><Button type="button" variant="outline" size="icon" onClick={startVoiceInput} aria-label="Use voice input">{listening ? "…" : "Mic"}</Button></div><p className="mt-2 text-xs text-muted-foreground">At least 15 characters. Voice input stays in your browser until you submit the form.</p></div>
-        <div><Label>What was relevant? (optional)</Label><div className="mt-2 flex flex-wrap gap-2">{availableTags.map((tag) => <button key={tag} type="button" onClick={() => toggleTag(tag)} className={`rounded-full border px-3 py-1.5 text-sm ${selectedTags.includes(tag) ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}>{tag}</button>)}</div></div>
-        <div className="grid gap-3 sm:grid-cols-2"><div><Label htmlFor="language">Language</Label><select id="language" value={language} onChange={(event) => setLanguage(event.target.value)} className="mt-2 h-10 w-full rounded-md border bg-card px-3 text-sm"><option value="en">English</option><option value="hi">Hindi</option><option value="hinglish">Hinglish</option></select></div><div><Label htmlFor="length">Review length</Label><select id="length" value={length} onChange={(event) => setLength(event.target.value as typeof length)} className="mt-2 h-10 w-full rounded-md border bg-card px-3 text-sm"><option value="short">Short</option><option value="standard">Standard</option><option value="detailed">Detailed</option></select></div></div>
-        <Button type="button" loading={generating} loadingLabel="Generating…" disabled={!canGenerate} onClick={() => void generateDrafts()}>{drafts.length ? "Regenerate options" : "Generate 3 grounded options"}</Button>
-      </section> : null}
+        {rating !== null ? (
+          <div className="mt-8 border-t border-[#e7ecf3] pt-8">
+            <div>
+              <h3 className="text-xl font-extrabold tracking-[-0.05em] text-[#101b32]">
+                Select what you loved{" "}
+                <span className="text-[#71819a]">(Optional)</span>
+              </h3>
+              <p className="mt-1 text-sm font-medium text-[#6c7c95]">
+                Choose anything that feels true about your {rating}-star
+                experience.
+              </p>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {tagOptions.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  aria-pressed={selectedTags.includes(tag)}
+                  className={`rounded-full border px-3.5 py-2 text-xs font-extrabold transition ${selectedTags.includes(tag) ? "border-[#f5b400] bg-[#fff6d9] text-[#8a6500]" : "border-[#dce5f0] bg-[#f5f8fc] text-[#51627b] hover:border-[#b9c9dd]"}`}
+                >
+                  {tag}
+                  <span className="ml-1.5 text-[#9aaac0]">
+                    {selectedTags.includes(tag) ? "✓" : "+"}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <input
+                value={customTag}
+                onChange={(event) => setCustomTag(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    addCustomTag();
+                  }
+                }}
+                placeholder="Add your own tag"
+                maxLength={120}
+                className="h-11 min-w-0 flex-1 rounded-xl border border-[#dbe4ef] bg-white px-3 text-sm font-medium text-[#20304c] outline-none placeholder:text-[#a2afc1] focus:border-[#9bbcff] focus:ring-2 focus:ring-[#dce8ff]"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={addCustomTag}
+                disabled={!customTag.trim()}
+                className="h-11 shrink-0 px-4"
+              >
+                Add
+              </Button>
+            </div>
 
-      {generating ? <section className="rounded-2xl border bg-card p-5" aria-label="Generating review options"><Skeleton className="h-5 w-48" /><div className="mt-4 space-y-3">{[1, 2, 3].map((item) => <Skeleton key={item} className="h-24 w-full" />)}</div></section> : null}
+            <div className="mt-5 rounded-2xl border border-[#dfe7f0] bg-[#f8fafc] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-base font-extrabold text-[#101b32]">
+                  Optional AI settings
+                </h3>
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#8a9ab1]">
+                  Customer voice
+                </span>
+              </div>
+              <label className="mt-4 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#71819a]">
+                Tone
+                <select
+                  value={tone}
+                  onChange={(event) => {
+                    setTone(event.target.value as Tone);
+                    resetDraft();
+                  }}
+                  className="mt-2 h-11 w-full rounded-xl border border-[#dbe4ef] bg-white px-3 text-sm font-bold normal-case tracking-normal text-[#20304c]"
+                >
+                  <option value="friendly">Friendly</option>
+                  <option value="professional">Professional</option>
+                  <option value="warm">Warm</option>
+                  <option value="concise">Concise</option>
+                </select>
+              </label>
+            </div>
 
-      {drafts.length ? <section className="space-y-4 rounded-2xl border bg-card p-5">
-        <div><p className="text-sm font-medium text-muted-foreground">Step 4</p><h2 className="mt-1 text-lg font-semibold">Choose, edit or write your own</h2><p className="mt-1 text-sm text-muted-foreground">ReviewFlow never posts for you. Copy your words, then decide whether to open Google.</p></div>
-        <div className="space-y-3">{drafts.map((draft, index) => <button key={`${draft}-${index}`} type="button" onClick={() => setSelectedDraft(draft)} className={`w-full rounded-xl border p-4 text-left text-sm leading-6 ${selectedDraft === draft ? "border-primary bg-primary/5" : "hover:bg-muted"}`}><span className="mb-2 flex justify-between text-xs font-medium uppercase text-muted-foreground">Option {index + 1}<Copy className="h-4 w-4" /></span>{draft}</button>)}</div>
-        <div><Label htmlFor="edit-review">Edit before copying or write your own</Label><Textarea id="edit-review" value={selectedDraft} onChange={(event) => setSelectedDraft(event.target.value)} className="mt-2 min-h-28" placeholder="Select an option or write your own words." /></div>
-        {isLowRating && (contactFields.length || lowRatingSupportMessage) ? <div className="rounded-xl bg-muted p-4"><p className="text-sm font-medium">Want the business to follow up privately?</p><p className="mt-1 text-xs text-muted-foreground">{lowRatingSupportMessage ?? "Share contact details only if you want a response. This information is not sent to the AI assistant."}</p>{contactFields.length ? <div className="mt-3 grid gap-3 sm:grid-cols-3">{contactFields.includes("name") ? <ContactInput label="Name" value={contact.name} onChange={(value) => setContact((current) => ({ ...current, name: value }))} /> : null}{contactFields.includes("email") ? <ContactInput label="Email" value={contact.email} onChange={(value) => setContact((current) => ({ ...current, email: value }))} /> : null}{contactFields.includes("phone") ? <ContactInput label="Phone" value={contact.phone} onChange={(value) => setContact((current) => ({ ...current, phone: value }))} /> : null}<label className="flex items-start gap-2 text-xs sm:col-span-3"><input type="checkbox" checked={contactConsent} onChange={(event) => setContactConsent(event.target.checked)} className="mt-0.5 h-4 w-4" />I consent to sharing these contact details with the business for a private follow-up.</label></div> : null}</div> : null}
-        <div className="flex flex-wrap gap-2"><Button type="button" loading={copying} loadingLabel="Copying…" disabled={selectedDraft.trim().length < 10} onClick={() => void copyReview(selectedDraft)}><Copy className="h-4 w-4" />Copy selected text</Button><Button type="button" variant="outline" loading={openingGoogle} loadingLabel="Opening…" disabled={!copied || openingGoogle} onClick={() => void continueToGoogle()}><ExternalLink className="h-4 w-4" />Open Google review page</Button>{isLowRating ? <Button type="button" variant="ghost" loading={submittingPrivate} loadingLabel="Sending…" disabled={!feedbackId || submittingPrivate} onClick={() => void submitPrivate()}>Send private feedback too</Button> : null}</div>
-        {copied ? <p className="rounded-xl bg-muted p-3 text-sm">Your text is copied. The next page is Google’s official review page; you choose the rating and submit it there.</p> : null}
-      </section> : null}
-    </div>
+            <div className="mt-7">
+              <h3 className="text-xl font-extrabold tracking-[-0.05em] text-[#101b32]">
+                AI generated draft
+              </h3>
+              <Textarea
+                value={draftText}
+                onChange={(event) => setSelectedDraft(event.target.value)}
+                readOnly={generating || streaming}
+                placeholder="Your grounded review draft will appear here..."
+                className="mt-4 min-h-40 rounded-2xl border-[#dbe4ef] bg-[#fbfcfe] text-sm leading-6 shadow-none placeholder:text-[#c1cad6] focus-visible:ring-2"
+                aria-label="AI generated draft"
+              />
+              <p className="mt-2 text-xs font-medium text-[#8998ad]">
+                Generated only from your rating, selected tags and tone.
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              aria-label={
+                generated
+                  ? "Open Google review page after copying"
+                  : "Generate review"
+              }
+              loading={generating || openingGoogle}
+              loadingLabel={generating ? "Generating..." : "Opening Google..."}
+              disabled={
+                !canGenerate ||
+                (generated && (selectedDraft.trim().length < 10 || streaming))
+              }
+              onClick={() =>
+                void (generated ? copyAndContinueToGoogle() : generateDraft())
+              }
+              className="mt-5 h-12 w-full rounded-2xl text-sm font-semibold hover:cursor-pointer"
+            >
+              <span className="inline-flex items-center justify-center gap-2">
+                {generated ? (
+                  <ExternalLink className="h-4 w-4 shrink-0" />
+                ) : (
+                  <Sparkles className="h-4 w-4 shrink-0" />
+                )}
+
+                <span className="leading-none">
+                  {generated
+                    ? "Copy & continue on Google Maps"
+                    : "Generate review"}
+                </span>
+              </span>
+            </Button>
+            {generated ? (
+              <Button
+                type="button"
+                variant="ghost"
+                loading={copying}
+                loadingLabel="Copying..."
+                disabled={
+                  selectedDraft.trim().length < 10 || copying || streaming
+                }
+                onClick={() => void copyOnly()}
+                className="mt-2 h-11 w-full rounded-xl text-sm font-medium"
+              >
+                <span className="inline-flex items-center justify-center gap-2">
+                  <Copy className="h-4 w-4 shrink-0" />
+                  <span className="leading-none">Copy answer</span>
+                </span>
+              </Button>
+            ) : null}
+            {isLowRating && generated ? (
+              <p className="mt-3 text-center text-xs font-semibold text-[#8a6500]">
+                Your {rating}-star rating stays unchanged. Google remains
+                available.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      <footer className="border-t border-[#e7ecf3] bg-[#f8fafc] px-6 py-4 text-center text-[11px] font-semibold text-[#7a8ba3]">
+        ReviewFlow never posts a review for you.
+      </footer>
+    </section>
   );
 }
-
-function ContactInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) { return <label className="block text-xs"><span className="text-muted-foreground">{label}</span><input value={value} onChange={(event) => onChange(event.target.value)} className="mt-1 h-9 w-full rounded-md border bg-card px-2 text-sm" /></label>; }

@@ -3,6 +3,7 @@ export type PlanKey = "starter" | "growth" | "pro";
 export type PlanConfig = {
   key: PlanKey;
   name: string;
+  tagline: string;
   priceInr: number;
   interval: "month";
   businesses: number;
@@ -15,6 +16,7 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
   starter: {
     key: "starter",
     name: "Starter",
+    tagline: "A focused setup for one location.",
     priceInr: 499,
     interval: "month",
     businesses: 1,
@@ -25,6 +27,7 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
   growth: {
     key: "growth",
     name: "Growth",
+    tagline: "More room for a growing local team.",
     priceInr: 999,
     interval: "month",
     businesses: 3,
@@ -35,6 +38,7 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
   pro: {
     key: "pro",
     name: "Pro",
+    tagline: "A full review operation across locations.",
     priceInr: 1999,
     interval: "month",
     businesses: 10,

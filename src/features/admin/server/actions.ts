@@ -6,6 +6,7 @@ import { requireAdmin } from "@/lib/auth/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeGoogleReviewUrl } from "@/lib/security/google-url";
 import { REVIEW_PROMPT_SETTING_KEY, assertAdminPromptIsSafe } from "@/features/ai/server/prompt";
+import { hasRatingTagFields, ratingTagsFromFields } from "@/lib/feedback/rating-tags";
 
 const statusSchema = z.object({
   id: z.string().uuid(),
@@ -64,7 +65,15 @@ export async function updateBusinessAdminAction(formData: FormData) {
       category: z.string().min(2).max(80),
       googleReviewUrl: z.string().transform((value) => normalizeGoogleReviewUrl(value)),
       phone: z.string().max(40).optional().default(""),
-      website: z.string().url().optional().or(z.literal("")).default("")
+      website: z.string().url().optional().or(z.literal("")).default(""),
+      experienceTags: z.string().max(1000).optional().default(""),
+      ratingTags1: z.string().max(1000).optional().default(""),
+      ratingTags2: z.string().max(1000).optional().default(""),
+      ratingTags3: z.string().max(1000).optional().default(""),
+      ratingTags4: z.string().max(1000).optional().default(""),
+      ratingTags5: z.string().max(1000).optional().default(""),
+      lowRatingSupportMessage: z.string().max(400).optional().default(""),
+      contactFields: z.string().max(200).optional().default("name,email")
     })
     .parse({
       id: formData.get("id"),
@@ -72,9 +81,18 @@ export async function updateBusinessAdminAction(formData: FormData) {
       category: formData.get("category"),
       googleReviewUrl: formData.get("googleReviewUrl"),
       phone: formData.get("phone"),
-      website: formData.get("website")
+      website: formData.get("website"),
+      experienceTags: formData.get("experienceTags"),
+      ratingTags1: formData.get("ratingTags1"),
+      ratingTags2: formData.get("ratingTags2"),
+      ratingTags3: formData.get("ratingTags3"),
+      ratingTags4: formData.get("ratingTags4"),
+      ratingTags5: formData.get("ratingTags5"),
+      lowRatingSupportMessage: formData.get("lowRatingSupportMessage"),
+      contactFields: formData.get("contactFields")
     });
   const admin = createAdminClient();
+  const ratingTags = ratingTagsFromFields(parsed);
   const { error } = await admin
     .from("businesses")
     .update({
@@ -82,7 +100,10 @@ export async function updateBusinessAdminAction(formData: FormData) {
       category: parsed.category,
       google_review_url: parsed.googleReviewUrl,
       phone: parsed.phone || null,
-      website: parsed.website || null
+      website: parsed.website || null,
+      experience_tags: hasRatingTagFields(ratingTags) ? ratingTags : parsed.experienceTags.split(/[\n,]/).map((item) => item.trim()).filter(Boolean),
+      low_rating_support_message: parsed.lowRatingSupportMessage || null,
+      contact_fields: parsed.contactFields.split(/[\n,]/).map((item) => item.trim()).filter((item) => ["name", "email", "phone"].includes(item))
     })
     .eq("id", parsed.id);
   if (error) throw error;

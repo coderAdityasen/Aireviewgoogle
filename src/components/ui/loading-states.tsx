@@ -36,7 +36,7 @@ export function LoadingButton({
 
 export function CardSkeleton({ className }: { className?: string }) {
   return (
-    <div className={cn("rounded-2xl border bg-card p-5", className)} aria-hidden="true">
+    <div className={cn("rounded-[1.5rem] border border-transparent bg-card p-6 shadow-sm", className)} aria-hidden="true">
       <div className="h-4 w-28 animate-pulse rounded bg-muted motion-reduce:animate-none" />
       <div className="mt-4 h-7 w-40 animate-pulse rounded bg-muted motion-reduce:animate-none" />
       <div className="mt-3 h-4 w-3/4 animate-pulse rounded bg-muted motion-reduce:animate-none" />

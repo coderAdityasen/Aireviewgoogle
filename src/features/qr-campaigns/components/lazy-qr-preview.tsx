@@ -8,6 +8,6 @@ const QrPreview = dynamic(() => import("@/features/qr-campaigns/components/qr-pr
   loading: () => <CardSkeleton className="min-h-80" />
 });
 
-export function LazyQrPreview(props: { slug: string; campaignToken: string; businessName: string; logoUrl?: string | null }) {
+export function LazyQrPreview(props: { businessId?: string; slug: string; campaignToken: string; businessName: string; logoUrl?: string | null; brandColor?: string; posterHeadline?: string | null; posterTemplate?: "light" | "dark" }) {
   return <QrPreview {...props} />;
 }

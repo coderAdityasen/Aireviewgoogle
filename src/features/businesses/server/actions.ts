@@ -6,12 +6,18 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { businessSchema } from "@/lib/validation/business";
 import { assertBusinessLimit, assertQrCampaignLimit, requirePaidOwner } from "@/lib/billing/entitlements";
+import { hasRatingTagFields, ratingTagsFromFields } from "@/lib/feedback/rating-tags";
 
 function servicesToJson(services: string) {
   return services
     .split(/[\n,]/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function experienceTagsToJson(input: { experienceTags: string; ratingTags1: string; ratingTags2: string; ratingTags3: string; ratingTags4: string; ratingTags5: string }) {
+  const ratingTags = ratingTagsFromFields({ ...input });
+  return hasRatingTagFields(ratingTags) ? ratingTags : servicesToJson(input.experienceTags);
 }
 
 function slugify(input: string) {
@@ -69,7 +75,7 @@ export async function createBusinessAction(input: unknown) {
       latitude: parsed.latitude ?? null,
       longitude: parsed.longitude ?? null,
       default_language: parsed.defaultLanguage,
-      experience_tags: servicesToJson(parsed.experienceTags),
+      experience_tags: experienceTagsToJson(parsed),
       low_rating_support_message: parsed.lowRatingSupportMessage || null,
       contact_fields: servicesToJson(parsed.contactFields),
       poster_headline: parsed.posterHeadline || null,
@@ -125,7 +131,7 @@ export async function updateBusinessAction(businessId: string, input: unknown) {
       latitude: parsed.latitude ?? null,
       longitude: parsed.longitude ?? null,
       default_language: parsed.defaultLanguage
-      ,experience_tags: servicesToJson(parsed.experienceTags)
+      ,experience_tags: experienceTagsToJson(parsed)
       ,low_rating_support_message: parsed.lowRatingSupportMessage || null
       ,contact_fields: servicesToJson(parsed.contactFields)
       ,poster_headline: parsed.posterHeadline || null
