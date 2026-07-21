@@ -17,9 +17,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={manrope.variable}>
+      <body className={`${manrope.variable} antialiased`}>
         {children}
-        <Toaster richColors closeButton />
+        <Toaster richColors closeButton position="top-center" toastOptions={{ className: "font-sans" }} />
       </body>
     </html>
   );

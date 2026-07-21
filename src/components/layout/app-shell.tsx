@@ -7,7 +7,7 @@ export function AppShell({
   mode,
   title,
   businesses,
-  account
+  account,
 }: {
   children: React.ReactNode;
   mode: "owner" | "admin";
@@ -18,7 +18,17 @@ export function AppShell({
   return (
     <div className="min-h-screen overflow-x-clip">
       <AppSidebar mode={mode} />
-      <div className="min-w-0 lg:pl-[252px]"><main className="mx-auto min-w-0 max-w-[1500px] px-4 py-0 sm:px-7 lg:px-10"><DashboardHeader title={title} mode={mode} businesses={businesses} account={account} />{children}</main></div>
+      <div className="min-w-0 lg:pl-[252px]">
+        <main className="mx-auto min-w-0 max-w-[1500px] px-4 pb-12 pt-0 sm:px-7 lg:px-10">
+          <DashboardHeader
+            title={title}
+            mode={mode}
+            businesses={businesses}
+            account={account}
+          />
+          <div className="animate-fade-up">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

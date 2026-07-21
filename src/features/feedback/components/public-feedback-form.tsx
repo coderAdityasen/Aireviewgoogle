@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Copy, ExternalLink, Sparkles, Star } from "lucide-react";
+import { CheckCircle2, Copy, ExternalLink, RefreshCw, Send, Sparkles, Star } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,8 +41,12 @@ export function PublicFeedbackForm({
   const [generating, setGenerating] = useState(false);
   const [copying, setCopying] = useState(false);
   const [openingGoogle, setOpeningGoogle] = useState(false);
+  const [submittingPrivate, setSubmittingPrivate] = useState(false);
+  const [privateSubmitted, setPrivateSubmitted] = useState(false);
   const canGenerate = rating !== null;
+  /** 1–3 stars → private feedback only. 4–5 stars → Google review path. */
   const isLowRating = rating !== null && rating <= 3;
+  const isGoogleEligible = rating !== null && rating >= 4;
   const ratingTags =
     rating === null ? [] : (experienceTags[rating as keyof RatingTagMap] ?? []);
   const tagOptions = [...new Set([...ratingTags, ...selectedTags])];
@@ -86,6 +90,7 @@ export function PublicFeedbackForm({
     setStreaming(false);
     setStreamingSource("");
     setDisplayedDraft("");
+    setPrivateSubmitted(false);
   }
 
   function chooseRating(value: number) {
@@ -205,7 +210,13 @@ export function PublicFeedbackForm({
   }
 
   async function copyAndContinueToGoogle() {
-    if (selectedDraft.trim().length < 10 || !feedbackId || streaming) return;
+    if (
+      !isGoogleEligible ||
+      selectedDraft.trim().length < 10 ||
+      !feedbackId ||
+      streaming
+    )
+      return;
     setOpeningGoogle(true);
 
     // Reserve the tab while this function is still running directly from the
@@ -247,6 +258,44 @@ export function PublicFeedbackForm({
           : "Unable to open the Google review page.",
       );
       setOpeningGoogle(false);
+    }
+  }
+
+  async function submitPrivateFeedback() {
+    if (
+      !isLowRating ||
+      selectedDraft.trim().length < 10 ||
+      !feedbackId ||
+      streaming
+    )
+      return;
+    setSubmittingPrivate(true);
+    try {
+      const response = await fetch("/api/feedback/private", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          feedbackId,
+          finalEditedText: selectedDraft.trim(),
+        }),
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok)
+        throw new Error(
+          typeof json.error === "string"
+            ? json.error
+            : "Unable to submit private feedback.",
+        );
+      setPrivateSubmitted(true);
+      toast.success("Thank you — your feedback was sent privately.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to submit private feedback.",
+      );
+    } finally {
+      setSubmittingPrivate(false);
     }
   }
 
@@ -299,7 +348,7 @@ export function PublicFeedbackForm({
           <div className="mt-8 border-t border-[#e7ecf3] pt-8">
             <div>
               <h3 className="text-xl font-extrabold tracking-[-0.05em] text-[#101b32]">
-                Select what you loved{" "}
+                {isLowRating ? "What could be better" : "Select what you loved"}{" "}
                 <span className="text-[#71819a]">(Optional)</span>
               </h3>
               <p className="mt-1 text-sm font-medium text-[#6c7c95]">
@@ -375,79 +424,146 @@ export function PublicFeedbackForm({
               </label>
             </div>
 
-            <div className="mt-7">
-              <h3 className="text-xl font-extrabold tracking-[-0.05em] text-[#101b32]">
-                AI generated draft
-              </h3>
-              <Textarea
-                value={draftText}
-                onChange={(event) => setSelectedDraft(event.target.value)}
-                readOnly={generating || streaming}
-                placeholder="Your grounded review draft will appear here..."
-                className="mt-4 min-h-40 rounded-2xl border-[#dbe4ef] bg-[#fbfcfe] text-sm leading-6 shadow-none placeholder:text-[#c1cad6] focus-visible:ring-2"
-                aria-label="AI generated draft"
-              />
-              <p className="mt-2 text-xs font-medium text-[#8998ad]">
-                Generated only from your rating, selected tags and tone.
-              </p>
-            </div>
+            {privateSubmitted ? (
+              <div className="mt-7 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-8 text-center">
+                <div className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-100 text-emerald-600">
+                  <CheckCircle2 className="h-7 w-7" aria-hidden="true" />
+                </div>
+                <h3 className="mt-4 text-xl font-extrabold tracking-[-0.04em] text-[#101b32]">
+                  Feedback submitted
+                </h3>
+                <p className="mt-2 text-sm font-medium leading-6 text-[#6c7c95]">
+                  Thanks for sharing privately. The team at {business.name} will
+                  review your message — nothing was posted to Google.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="mt-7">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-xl font-extrabold tracking-[-0.05em] text-[#101b32]">
+                      AI generated draft
+                    </h3>
+                    {generated ? (
+                      <button
+                        type="button"
+                        onClick={() => void generateDraft()}
+                        disabled={
+                          generating ||
+                          streaming ||
+                          openingGoogle ||
+                          submittingPrivate
+                        }
+                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#b7d0ff] bg-[#eff5ff] px-3 py-1.5 text-xs font-bold text-[#2463f3] transition hover:bg-[#e0ecff] disabled:cursor-wait disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2463f3]/40"
+                        aria-label="Regenerate review draft"
+                      >
+                        <RefreshCw
+                          className={`h-3.5 w-3.5 ${generating ? "animate-spin" : ""}`}
+                          aria-hidden="true"
+                        />
+                        {generating ? "Regenerating…" : "Regenerate"}
+                      </button>
+                    ) : null}
+                  </div>
+                  <Textarea
+                    value={draftText}
+                    onChange={(event) => setSelectedDraft(event.target.value)}
+                    readOnly={generating || streaming}
+                    placeholder="Your grounded review draft will appear here..."
+                    className="mt-4 min-h-40 rounded-2xl border-[#dbe4ef] bg-[#fbfcfe] text-sm leading-6 shadow-none placeholder:text-[#c1cad6] focus-visible:ring-2"
+                    aria-label="AI generated draft"
+                  />
+                  <p className="mt-2 text-xs font-medium text-[#8998ad]">
+                    {isLowRating
+                      ? "This stays private with the business. It will not open Google."
+                      : "Generated only from your rating, selected tags and tone."}
+                  </p>
+                </div>
 
-            <Button
-              type="button"
-              aria-label={
-                generated
-                  ? "Open Google review page after copying"
-                  : "Generate review"
-              }
-              loading={generating || openingGoogle}
-              loadingLabel={generating ? "Generating..." : "Opening Google..."}
-              disabled={
-                !canGenerate ||
-                (generated && (selectedDraft.trim().length < 10 || streaming))
-              }
-              onClick={() =>
-                void (generated ? copyAndContinueToGoogle() : generateDraft())
-              }
-              className="mt-5 h-12 w-full rounded-2xl text-sm font-semibold hover:cursor-pointer"
-            >
-              <span className="inline-flex items-center justify-center gap-2">
-                {generated ? (
-                  <ExternalLink className="h-4 w-4 shrink-0" />
-                ) : (
-                  <Sparkles className="h-4 w-4 shrink-0" />
-                )}
+                {/* Before generate: Generate review. After: Submit (1–3) or Google (4–5). */}
+                <Button
+                  type="button"
+                  aria-label={
+                    !generated
+                      ? "Generate review"
+                      : isLowRating
+                        ? "Submit private feedback"
+                        : "Open Google review page after copying"
+                  }
+                  loading={generating || openingGoogle || submittingPrivate}
+                  loadingLabel={
+                    generating
+                      ? "Generating..."
+                      : submittingPrivate
+                        ? "Submitting..."
+                        : "Opening Google..."
+                  }
+                  disabled={
+                    !canGenerate ||
+                    (generated &&
+                      (selectedDraft.trim().length < 10 ||
+                        streaming ||
+                        !feedbackId))
+                  }
+                  onClick={() => {
+                    if (!generated) {
+                      void generateDraft();
+                      return;
+                    }
+                    if (isLowRating) {
+                      void submitPrivateFeedback();
+                      return;
+                    }
+                    void copyAndContinueToGoogle();
+                  }}
+                  className="mt-5 h-12 w-full rounded-2xl text-sm font-semibold hover:cursor-pointer"
+                >
+                  <span className="inline-flex items-center justify-center gap-2">
+                    {!generated ? (
+                      <Sparkles className="h-4 w-4 shrink-0" />
+                    ) : isLowRating ? (
+                      <Send className="h-4 w-4 shrink-0" />
+                    ) : (
+                      <ExternalLink className="h-4 w-4 shrink-0" />
+                    )}
+                    <span className="leading-none">
+                      {!generated
+                        ? "Generate review"
+                        : isLowRating
+                          ? "Submit"
+                          : "Copy & continue on Google Maps"}
+                    </span>
+                  </span>
+                </Button>
 
-                <span className="leading-none">
-                  {generated
-                    ? "Copy & continue on Google Maps"
-                    : "Generate review"}
-                </span>
-              </span>
-            </Button>
-            {generated ? (
-              <Button
-                type="button"
-                variant="ghost"
-                loading={copying}
-                loadingLabel="Copying..."
-                disabled={
-                  selectedDraft.trim().length < 10 || copying || streaming
-                }
-                onClick={() => void copyOnly()}
-                className="mt-2 h-11 w-full rounded-xl text-sm font-medium"
-              >
-                <span className="inline-flex items-center justify-center gap-2">
-                  <Copy className="h-4 w-4 shrink-0" />
-                  <span className="leading-none">Copy answer</span>
-                </span>
-              </Button>
-            ) : null}
-            {isLowRating && generated ? (
-              <p className="mt-3 text-center text-xs font-semibold text-[#8a6500]">
-                Your {rating}-star rating stays unchanged. Google remains
-                available.
-              </p>
-            ) : null}
+                {/* Copy only for 4–5 star Google path */}
+                {generated && isGoogleEligible ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    loading={copying}
+                    loadingLabel="Copying..."
+                    disabled={
+                      selectedDraft.trim().length < 10 || copying || streaming
+                    }
+                    onClick={() => void copyOnly()}
+                    className="mt-2 h-11 w-full rounded-xl text-sm font-medium"
+                  >
+                    <span className="inline-flex items-center justify-center gap-2">
+                      <Copy className="h-4 w-4 shrink-0" />
+                      <span className="leading-none">Copy answer</span>
+                    </span>
+                  </Button>
+                ) : null}
+
+                {generated && isLowRating ? (
+                  <p className="mt-3 text-center text-xs font-semibold text-[#8a6500]">
+                    Your {rating}-star feedback is sent privately to the business —
+                    not to Google.
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
         ) : null}
       </div>

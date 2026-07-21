@@ -1,24 +1,33 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: #f5f7fb;
-  --color-foreground: #111a32;
+  --color-background: #f4f6fb;
+  --color-foreground: #0f172a;
   --color-card: #ffffff;
-  --color-card-foreground: #111a32;
-  --color-muted: #f0f3f8;
-  --color-muted-foreground: #71809a;
-  --color-border: #e4e9f2;
-  --color-input: #dbe3ee;
+  --color-card-foreground: #0f172a;
+  --color-muted: #eef2f8;
+  --color-muted-foreground: #64748b;
+  --color-border: #e2e8f0;
+  --color-input: #d8e0ec;
   --color-primary: #2463f3;
   --color-primary-foreground: #ffffff;
   --color-secondary: #0b1428;
   --color-secondary-foreground: #ffffff;
-  --color-destructive: #c24145;
+  --color-accent: #eef4ff;
+  --color-accent-foreground: #1e40af;
+  --color-success: #059669;
+  --color-success-foreground: #ffffff;
+  --color-warning: #d97706;
+  --color-warning-foreground: #ffffff;
+  --color-destructive: #dc2626;
   --color-destructive-foreground: #ffffff;
   --color-ring: #2463f3;
   --radius-lg: 1.25rem;
   --radius-md: 0.9rem;
   --radius-sm: 0.65rem;
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.05);
+  --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(36, 99, 243, 0.08);
+  --shadow-elevated: 0 12px 40px rgba(15, 23, 42, 0.12);
 }
 
 * {
@@ -28,15 +37,34 @@
 html {
   color-scheme: light;
   overflow-x: clip;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body {
   min-height: 100vh;
   overflow-x: clip;
-  background: var(--color-background);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(36, 99, 243, 0.06), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(99, 102, 241, 0.04), transparent 50%),
+    var(--color-background);
   color: var(--color-foreground);
-  font-family: var(--font-sans), "Segoe UI", Arial, sans-serif;
+  font-family: var(--font-sans), "Segoe UI", system-ui, Arial, sans-serif;
   font-size: 15px;
+  line-height: 1.55;
   letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -53,7 +81,13 @@ h1,
 h2,
 h3,
 h4 {
-  letter-spacing: -0.045em;
+  letter-spacing: -0.04em;
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
 }
 
 ::selection {
@@ -66,6 +100,76 @@ a {
 }
 
 :focus-visible {
-  outline: 3px solid var(--color-ring);
+  outline: 2px solid var(--color-ring);
   outline-offset: 2px;
+}
+
+/* Refined default details/summary for FAQs */
+details > summary {
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+details[open] > summary {
+  color: var(--color-primary);
+}
+
+/* Utility surfaces */
+.surface-card {
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  background: var(--color-card);
+  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-lg);
+}
+
+.surface-elevated {
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: var(--color-card);
+  box-shadow: var(--shadow-elevated);
+  border-radius: var(--radius-lg);
+}
+
+.section-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+}
+
+/* Subtle entrance for key panels */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.45s ease-out both;
+}
+
+/* Thin scrollbar for side panels */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-muted-foreground) 35%, transparent) transparent;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-muted-foreground) 30%, transparent);
+  border-radius: 999px;
 }

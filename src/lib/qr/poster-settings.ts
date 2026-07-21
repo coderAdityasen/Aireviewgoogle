@@ -3,39 +3,39 @@ import type { Json } from "@/types/database";
 export const POSTER_TEMPLATES = [
   {
     id: "midnight",
-    name: "Midnight Scan",
-    description: "High contrast",
+    name: "Prime Review",
+    description: "Dark premium poster",
     background: "#0b1428",
-    surface: "#15254a",
+    surface: "#0e1c38",
     foreground: "#ffffff",
-    accent: "#4d8dff"
+    accent: "#2463f3"
   },
   {
     id: "clear",
-    name: "Clear Signal",
-    description: "Bright and clean",
+    name: "Elite Stand",
+    description: "Bright clean poster",
     background: "#eef5ff",
     surface: "#ffffff",
-    foreground: "#10203d",
+    foreground: "#0f172a",
     accent: "#2463f3"
   },
   {
     id: "warm",
-    name: "Warm Signal",
-    description: "Friendly energy",
+    name: "Review Spot",
+    description: "Warm sunset poster",
     background: "#fff7ed",
-    surface: "#ffffff",
+    surface: "#fffaf5",
     foreground: "#431407",
-    accent: "#f97316"
+    accent: "#ea580c"
   },
   {
     id: "evergreen",
-    name: "Evergreen",
-    description: "Calm and confident",
-    background: "#ecfdf5",
-    surface: "#ffffff",
-    foreground: "#052e16",
-    accent: "#059669"
+    name: "Review Pro",
+    description: "Deep green poster",
+    background: "#052e16",
+    surface: "#064e3b",
+    foreground: "#ecfdf5",
+    accent: "#10b981"
   }
 ] as const;
 

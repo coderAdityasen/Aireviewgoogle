@@ -5,28 +5,35 @@ import { cn } from "@/lib/utils";
 import { ButtonSpinner } from "@/components/ui/loading-states";
 
 const buttonVariants = cva(
-  "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] motion-reduce:active:scale-100",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(36,99,243,0.2)] hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-[0_10px_24px_rgba(36,99,243,0.25)]",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90",
-        outline: "border border-border bg-card text-foreground hover:border-primary/30 hover:bg-primary/5 hover:text-primary",
-        ghost: "text-muted-foreground hover:bg-muted hover:text-foreground",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+        default:
+          "bg-primary text-primary-foreground shadow-[0_8px_18px_rgba(36,99,243,0.22)] hover:-translate-y-0.5 hover:bg-[#1f56d9] hover:shadow-[0_12px_28px_rgba(36,99,243,0.28)]",
+        secondary:
+          "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/90",
+        outline:
+          "border border-border bg-card text-foreground shadow-sm hover:border-primary/35 hover:bg-primary/5 hover:text-primary",
+        ghost:
+          "text-muted-foreground hover:bg-muted hover:text-foreground",
+        destructive:
+          "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+        soft:
+          "bg-primary/10 text-primary hover:bg-primary/15",
       },
       size: {
         default: "h-11 px-5 py-2.5",
         sm: "h-10 px-4 text-xs",
-        lg: "h-12 px-6",
-        icon: "h-11 w-11 px-0"
-      }
+        lg: "h-12 px-6 text-[15px]",
+        icon: "h-11 w-11 px-0",
+      },
     },
     defaultVariants: {
       variant: "default",
-      size: "default"
-    }
-  }
+      size: "default",
+    },
+  },
 );
 
 export interface ButtonProps

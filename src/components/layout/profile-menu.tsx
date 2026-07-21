@@ -6,12 +6,28 @@ import { ChevronDown, CreditCard, LogOut, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { LoadingSpinner } from "@/components/ui/loading-states";
 
-export function ProfileMenu({ name, email, mode }: { name?: string | null; email?: string | null; mode: "owner" | "admin" }) {
+export function ProfileMenu({
+  name,
+  email,
+  mode,
+}: {
+  name?: string | null;
+  email?: string | null;
+  mode: "owner" | "admin";
+}) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const displayName = name?.trim() || email?.split("@")[0] || (mode === "admin" ? "Administrator" : "Account");
-  const initials = displayName.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "RF";
+  const displayName =
+    name?.trim() ||
+    email?.split("@")[0] ||
+    (mode === "admin" ? "Administrator" : "Account");
+  const initials =
+    displayName
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join("") || "RF";
   const settingsHref = mode === "owner" ? "/dashboard/settings" : "/admin/settings";
 
   useEffect(() => {
@@ -42,18 +58,72 @@ export function ProfileMenu({ name, email, mode }: { name?: string | null; email
     }
   }
 
-  return <div ref={rootRef} className="relative">
-    <button type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open} aria-haspopup="menu" className="flex items-center gap-2 rounded-full p-1.5 pr-2 transition hover:cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      <span className="grid h-9 w-9 place-items-center rounded-full bg-[#4d3df2] text-xs font-extrabold text-white">{initials}</span>
-      <span className="hidden max-w-28 truncate text-sm font-extrabold text-foreground sm:block">{displayName}</span>
-      <ChevronDown className={`h-4 w-4 text-muted-foreground transition ${open ? "rotate-180" : ""}`} aria-hidden="true" />
-      <span className="sr-only">Open account menu</span>
-    </button>
-    {open ? <div role="menu" className="absolute right-0 top-12 z-50 w-64 rounded-2xl border border-border bg-white p-2 shadow-[0_18px_45px_rgba(20,35,65,0.16)]">
-      <div className="border-b border-border/70 px-3 pb-3 pt-2"><p className="truncate text-sm font-extrabold">{displayName}</p><p className="mt-1 truncate text-xs font-medium text-muted-foreground">{email ?? "Signed-in account"}</p></div>
-      <Link role="menuitem" href={settingsHref} onClick={() => setOpen(false)} className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Settings className="h-4 w-4 text-muted-foreground" />My profile</Link>
-      <Link role="menuitem" href={mode === "owner" ? "/dashboard/billing" : "/admin/settings"} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><CreditCard className="h-4 w-4 text-muted-foreground" />{mode === "owner" ? "Billing & plans" : "Admin settings"}</Link>
-      <button role="menuitem" type="button" disabled={signingOut} onClick={() => void signOut()} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-destructive transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{signingOut ? <LoadingSpinner label="Signing out" className="text-destructive" /> : <LogOut className="h-4 w-4" />} {signingOut ? "Signing out..." : "Log out"}</button>
-    </div> : null}
-  </div>;
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        className="flex items-center gap-2 rounded-full border border-transparent p-1 pr-2.5 transition hover:border-border hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[#4d3df2] to-[#2463f3] text-xs font-extrabold text-white shadow-sm">
+          {initials}
+        </span>
+        <span className="hidden max-w-28 truncate text-sm font-extrabold text-foreground sm:block">
+          {displayName}
+        </span>
+        <ChevronDown
+          className={`h-4 w-4 text-muted-foreground transition duration-200 ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+        <span className="sr-only">Open account menu</span>
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          className="absolute right-0 top-12 z-50 w-64 origin-top-right animate-fade-up rounded-2xl border border-border bg-white p-2 shadow-[0_18px_45px_rgba(20,35,65,0.16)]"
+        >
+          <div className="border-b border-border/70 px-3 pb-3 pt-2">
+            <p className="truncate text-sm font-extrabold">{displayName}</p>
+            <p className="mt-1 truncate text-xs font-medium text-muted-foreground">
+              {email ?? "Signed-in account"}
+            </p>
+          </div>
+          <Link
+            role="menuitem"
+            href={settingsHref}
+            onClick={() => setOpen(false)}
+            className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Settings className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            My profile
+          </Link>
+          <Link
+            role="menuitem"
+            href={mode === "owner" ? "/dashboard/billing" : "/admin/settings"}
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <CreditCard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            {mode === "owner" ? "Billing & plans" : "Admin settings"}
+          </Link>
+          <button
+            role="menuitem"
+            type="button"
+            disabled={signingOut}
+            onClick={() => void signOut()}
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-destructive transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {signingOut ? (
+              <LoadingSpinner label="Signing out" className="text-destructive" />
+            ) : (
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+            )}{" "}
+            {signingOut ? "Signing out..." : "Log out"}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
 }

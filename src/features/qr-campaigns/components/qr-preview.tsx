@@ -37,6 +37,11 @@ import {
   type QrStyleId,
 } from "@/lib/qr/poster-settings";
 import { updatePosterSettingsAction } from "@/features/qr-campaigns/server/actions";
+import {
+  composePosterPng,
+  downloadDataUrl,
+  posterFilename,
+} from "@/lib/qr/compose-poster";
 import type { Json } from "@/types/database";
 
 type QrPreviewProps = {
@@ -118,6 +123,8 @@ export function QrPreview({
   );
   const [png, setPng] = useState("");
   const [, setSvg] = useState("");
+  const [posterImage, setPosterImage] = useState("");
+  const [composing, setComposing] = useState(false);
   const [uploading, setUploading] = useState<"brand" | "qr" | null>(null);
   const [exporting, setExporting] = useState(false);
   const [copying, setCopying] = useState(false);
@@ -163,6 +170,52 @@ export function QrPreview({
       active = false;
     };
   }, [url, qrColor, transparent, logoOverlay]);
+
+  // Live poster image: real template art + current QR composited together
+  useEffect(() => {
+    if (!png) {
+      setPosterImage("");
+      return;
+    }
+    let active = true;
+    setComposing(true);
+    void composePosterPng({
+      displayName,
+      headline,
+      subtitle,
+      campaignName,
+      qrDataUrl: png,
+      brandLogoUrl,
+      qrLogoUrl,
+      logoOverlay,
+      template,
+      width: 720,
+      height: 960,
+    })
+      .then((image) => {
+        if (!active) return;
+        setPosterImage(image);
+      })
+      .catch(() => {
+        if (active) setPosterImage("");
+      })
+      .finally(() => {
+        if (active) setComposing(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    png,
+    displayName,
+    headline,
+    subtitle,
+    campaignName,
+    brandLogoUrl,
+    qrLogoUrl,
+    logoOverlay,
+    template,
+  ]);
 
   async function uploadImage(file: File, target: "brand" | "qr") {
     if (!ownerId) {
@@ -250,68 +303,29 @@ export function QrPreview({
     }
   }
 
-  function download(filename: string, href: string) {
-    if (!href) return;
-    const anchor = document.createElement("a");
-    anchor.href = href;
-    anchor.download = filename;
-    anchor.click();
-    toast.success(`${filename.endsWith(".svg") ? "SVG" : "PNG"} downloaded.`);
-  }
-
   async function exportPoster() {
     if (!png) return;
     setExporting(true);
     try {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1200;
-      canvas.height = 1600;
-      const context = canvas.getContext("2d");
-      if (!context)
-        throw new Error("Your browser could not prepare the poster export.");
-      context.fillStyle = selectedTemplate.background;
-      context.fillRect(0, 0, canvas.width, canvas.height);
-      context.fillStyle = selectedTemplate.surface;
-      roundRect(context, 90, 80, 1020, 1440, 42);
-      context.fill();
-      context.textAlign = "center";
-      context.fillStyle = selectedTemplate.foreground;
-      context.font = "700 30px Arial";
-      context.fillText(displayName.slice(0, 42), 600, 180);
-      context.font = "800 64px Arial";
-      drawWrappedText(context, headline, 600, 310, 820, 76, 3);
-      context.font = "500 30px Arial";
-      drawWrappedText(context, subtitle, 600, 510, 790, 42, 2);
-      const qrImage = await loadImage(png);
-      context.fillStyle = "#ffffff";
-      roundRect(context, 300, 610, 600, 600, 30);
-      context.fill();
-      context.drawImage(qrImage, 340, 650, 520, 520);
-      if (logoOverlay && qrLogoUrl) {
-        const qrLogo = await loadImage(qrLogoUrl);
-        context.fillStyle = "#ffffff";
-        context.beginPath();
-        context.arc(600, 910, 70, 0, Math.PI * 2);
-        context.fill();
-        context.save();
-        context.beginPath();
-        context.arc(600, 910, 54, 0, Math.PI * 2);
-        context.clip();
-        context.drawImage(qrLogo, 546, 856, 108, 108);
-        context.restore();
-      }
-      context.fillStyle = selectedTemplate.accent;
-      roundRect(context, 370, 1270, 460, 84, 20);
-      context.fill();
-      context.fillStyle = "#ffffff";
-      context.font = "800 30px Arial";
-      context.fillText("SCAN TO SHARE", 600, 1322);
-      context.font = "500 22px Arial";
-      context.fillText("ReviewFlow customer link", 600, 1430);
-      download(
-        `${displayName || businessName}-poster.png`,
-        canvas.toDataURL("image/png"),
+      // High-res print export — same template engine as the live mockup
+      const dataUrl = await composePosterPng({
+        displayName: displayName || businessName,
+        headline,
+        subtitle,
+        campaignName,
+        qrDataUrl: png,
+        brandLogoUrl,
+        qrLogoUrl,
+        logoOverlay,
+        template,
+        width: 1080,
+        height: 1440,
+      });
+      downloadDataUrl(
+        posterFilename(displayName || businessName, template),
+        dataUrl,
       );
+      toast.success("Poster PNG downloaded.");
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -321,6 +335,15 @@ export function QrPreview({
     } finally {
       setExporting(false);
     }
+  }
+
+  function downloadQrOnly() {
+    if (!png) return;
+    downloadDataUrl(
+      posterFilename(`${displayName || businessName}-qr-only`, template),
+      png,
+    );
+    toast.success("QR code PNG downloaded.");
   }
 
   return (
@@ -520,80 +543,30 @@ export function QrPreview({
             <div className="mt-5 flex justify-center py-1">
               <div
                 id="reviewflow-poster-print"
-                className="aspect-[3/4] w-full max-w-[272px] overflow-hidden rounded-[6px] p-3 shadow-[0_18px_45px_rgba(15,23,42,0.16)]"
-                style={{
-                  background: posterBackground(template),
-                  color: selectedTemplate.foreground,
-                }}
+                className="relative aspect-[3/4] w-full max-w-[280px] overflow-hidden rounded-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/80"
               >
-                <div
-                  className="flex h-full min-h-0 flex-col items-center overflow-hidden rounded-[4px] border border-white/10 px-4 py-4 text-center"
-                  style={{ backgroundColor: selectedTemplate.surface }}
-                >
-                  <div className="flex h-8 shrink-0 items-center justify-center">
-                    {brandLogoUrl ? (
-                      <img
-                        src={brandLogoUrl}
-                        alt={`${displayName} logo`}
-                        className="h-8 max-w-24 rounded-lg object-contain"
-                      />
-                    ) : (
-                      <div
-                        className="grid h-8 w-8 place-items-center rounded-lg text-xs font-black text-white"
-                        style={{ backgroundColor: selectedTemplate.accent }}
-                      >
-                        {displayName.slice(0, 1).toUpperCase() || "R"}
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-1 max-w-full truncate text-[7px] font-extrabold uppercase tracking-[0.14em] opacity-70">
-                    {displayName || businessName}
-                  </p>
-                  <h3 className="mt-1.5 line-clamp-2 max-w-full text-[16px] font-extrabold leading-[1.08] tracking-[-0.04em]">
-                    {headline}
-                  </h3>
-                  <p className="mt-1 line-clamp-2 max-w-full text-[8px] font-semibold leading-[1.2] opacity-70">
-                    {subtitle}
-                  </p>
-                  <div className="relative mt-2 shrink-0 rounded-xl bg-white p-1.5 shadow-sm">
-                    {png ? (
-                      <img
-                        src={png}
-                        alt={`${displayName || businessName} QR code`}
-                        className="aspect-square w-28 sm:w-32"
-                      />
-                    ) : (
-                        <div className="grid aspect-square w-28 place-items-center sm:w-32">
-                        <LoadingSpinner label="Generating QR" />
-                      </div>
-                    )}
-                    {logoOverlay && qrLogoUrl ? (
-                      <div className="pointer-events-none absolute left-1/2 top-1/2 grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white p-1 shadow-sm">
-                        <img
-                          src={qrLogoUrl}
-                          alt=""
-                          className="h-full w-full rounded-full object-cover"
-                        />
-                      </div>
-                    ) : null}
-                  </div>
-                  <div className="mt-1.5 shrink-0 text-[10px] leading-none tracking-[0.16em] text-amber-400" aria-label="Five star rating">★★★★★</div>
-                  <p className="mt-1 shrink-0 text-[7px] font-extrabold uppercase tracking-[0.1em] opacity-80">Review us on Google</p>
+                {posterImage ? (
+                  <img
+                    src={posterImage}
+                    alt={`${displayName || businessName} poster with QR code`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
                   <div
-                    className="mt-1.5 shrink-0 rounded-md px-3 py-1 text-[7px] font-extrabold uppercase tracking-[0.1em] text-white"
-                    style={{ backgroundColor: selectedTemplate.accent }}
+                    className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center"
+                    style={{
+                      background: posterBackground(template),
+                      color: selectedTemplate.foreground,
+                    }}
                   >
-                    Scan to share
+                    <LoadingSpinner label="Building poster" />
+                    <p className="text-xs font-semibold opacity-70">
+                      {composing || !png
+                        ? "Building poster image…"
+                        : "Preparing preview…"}
+                    </p>
                   </div>
-                  <div className="mt-auto flex w-full shrink-0 items-center gap-1.5 pt-3">
-                    <span className="h-0.5 flex-1 rounded-full bg-primary" />
-                    <span className="h-0.5 flex-1 rounded-full bg-amber-400" />
-                    <span className="h-0.5 flex-1 rounded-full bg-emerald-500" />
-                  </div>
-                  <p className="mt-2 shrink-0 truncate text-[7px] font-bold opacity-60">
-                    Powered by ReviewFlow · {campaignName}
-                  </p>
-                </div>
+                )}
               </div>
             </div>
             <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-4">
@@ -617,11 +590,11 @@ export function QrPreview({
                 </div>
               </div>
             </div>
-            <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
               <Button
                 type="button"
                 size="sm"
-                className="flex items-center align-middle h-10 min-w-0 w-full gap-1.5 px-2 text-xs whitespace-nowrap"
+                className="flex h-10 min-w-0 w-full items-center gap-1.5 px-2 text-xs whitespace-nowrap"
                 loading={saving}
                 loadingLabel="Saving..."
                 onClick={saveConfiguration}
@@ -642,11 +615,22 @@ export function QrPreview({
               <Button
                 type="button"
                 size="sm"
+                variant="outline"
+                className="h-10 min-w-0 w-full gap-1.5 px-2 text-xs whitespace-nowrap"
+                onClick={downloadQrOnly}
+                disabled={!png}
+              >
+                <Download className="h-4 w-4 shrink-0" />
+                <span className="truncate">QR only</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
                 className="h-10 min-w-0 w-full gap-1.5 whitespace-nowrap bg-slate-900 px-2 text-xs text-white hover:bg-slate-800"
                 loading={exporting}
                 loadingLabel="Exporting..."
                 onClick={() => void exportPoster()}
-                disabled={!png}
+                disabled={!png || composing}
               >
                 <Download className="h-4 w-4 shrink-0" />
                 <span className="truncate">Export</span>
@@ -792,35 +776,35 @@ function TemplateTile({
       aria-pressed={selected}
       className={`min-w-0 rounded-[14px] border bg-white p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
         selected
-          ? "border-2 border-blue-600 bg-blue-50/40"
+          ? "border-2 border-blue-600 bg-blue-50/40 shadow-[0_8px_20px_rgba(36,99,243,0.12)]"
           : "border-slate-200 hover:border-slate-300"
       }`}
     >
       <div
-        className="aspect-[3/4] overflow-hidden rounded-[7px] p-2"
-        style={{ backgroundColor: item.background }}
+        className="relative aspect-[3/4] overflow-hidden rounded-[7px]"
+        style={{
+          background: posterBackground(item.id),
+        }}
       >
         <div
-          className="flex h-full flex-col items-center rounded-[5px] border border-white/10 px-2 py-3 text-center"
+          className="absolute inset-2 flex flex-col items-center rounded-[5px] px-2 py-2.5 text-center"
           style={{
             backgroundColor: item.surface,
             color: item.foreground,
           }}
         >
+          <span className="text-[9px] leading-none text-amber-400">★★★★★</span>
+          <span className="mt-1.5 h-1.5 w-12 rounded bg-current opacity-70" />
+          <span className="mt-1 h-1 w-14 rounded bg-current opacity-30" />
+          <div className="mt-2 rounded-md border-2 bg-white p-0.5" style={{ borderColor: item.accent }}>
+            <FakeQr color={qrColor} />
+          </div>
           <span
-            className="h-1.5 w-10 rounded-full"
+            className="mt-auto rounded-full px-2 py-0.5 text-[7px] font-extrabold uppercase tracking-wide text-white"
             style={{ backgroundColor: item.accent }}
-          />
-
-          <span className="mt-3 h-2 w-14 rounded bg-current opacity-60" />
-          <span className="mt-1.5 h-1.5 w-16 rounded bg-current opacity-30" />
-
-          <FakeQr color={qrColor} />
-
-          <span
-            className="mt-auto h-1.5 w-12 rounded"
-            style={{ backgroundColor: item.accent }}
-          />
+          >
+            Scan
+          </span>
         </div>
       </div>
 
@@ -866,7 +850,7 @@ function FakeQr({ color, large = false }: { color: string; large?: boolean }) {
   const cells = Array.from({ length: 81 }, (_, index) => index);
   return (
     <div
-      className={`grid ${large ? "h-28 w-28 grid-cols-9 gap-0.5 p-3" : "mt-5 h-16 w-16 grid-cols-9 gap-px p-1"} rounded-lg bg-white`}
+      className={`grid ${large ? "h-28 w-28 grid-cols-9 gap-0.5 p-3" : "h-12 w-12 grid-cols-9 gap-px p-1"} rounded-md bg-white`}
       aria-hidden="true"
     >
       {cells.map((index) => (
@@ -884,63 +868,11 @@ function FakeQr({ color, large = false }: { color: string; large?: boolean }) {
 }
 
 function posterBackground(template: PosterTemplateId) {
-  if (template === "midnight") return "linear-gradient(155deg, #0b1428 18%, #183978 100%)";
-  if (template === "warm") return "linear-gradient(155deg, #fff7ed 10%, #fed7aa 100%)";
-  if (template === "evergreen") return "linear-gradient(155deg, #ecfdf5 10%, #a7f3d0 100%)";
-  return getPosterTemplate(template).background;
-}
-
-function roundRect(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) {
-  context.beginPath();
-  context.moveTo(x + radius, y);
-  context.arcTo(x + width, y, x + width, y + height, radius);
-  context.arcTo(x + width, y + height, x, y + height, radius);
-  context.arcTo(x, y + height, x, y, radius);
-  context.arcTo(x, y, x + width, y, radius);
-  context.closePath();
-}
-
-function drawWrappedText(
-  context: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  lineHeight: number,
-  maxLines: number,
-) {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    const candidate = line ? `${line} ${word}` : word;
-    if (context.measureText(candidate).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else line = candidate;
-  }
-  if (line) lines.push(line);
-  lines
-    .slice(0, maxLines)
-    .forEach((entry, index) =>
-      context.fillText(entry, x, y + index * lineHeight),
-    );
-}
-
-function loadImage(source: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = () =>
-      reject(new Error("An image could not be included in the export."));
-    image.src = source;
-  });
+  if (template === "midnight")
+    return "linear-gradient(155deg, #07111f 18%, #12306a 100%)";
+  if (template === "warm")
+    return "linear-gradient(155deg, #fff7ed 10%, #fdba74 100%)";
+  if (template === "evergreen")
+    return "linear-gradient(155deg, #052e16 10%, #065f46 100%)";
+  return "linear-gradient(155deg, #eef5ff 10%, #dbeafe 100%)";
 }

@@ -12,7 +12,10 @@ declare module "lucide-react" {
   export const CreditCard: LucideIcon;
   export const Copy: LucideIcon;
   export const Download: LucideIcon;
+  export const Eye: LucideIcon;
+  export const EyeOff: LucideIcon;
   export const ExternalLink: LucideIcon;
+  export const Inbox: LucideIcon;
   export const LogOut: LucideIcon;
   export const LoaderCircle: LucideIcon;
   export const LayoutDashboard: LucideIcon;
@@ -27,6 +30,7 @@ declare module "lucide-react" {
   export const RefreshCw: LucideIcon;
   export const ShieldCheck: LucideIcon;
   export const Search: LucideIcon;
+  export const Send: LucideIcon;
   export const Settings: LucideIcon;
   export const Star: LucideIcon;
   export const Sparkles: LucideIcon;
