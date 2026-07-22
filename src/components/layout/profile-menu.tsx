@@ -43,7 +43,7 @@ export function ProfileMenu({ name, email, mode }: { name?: string | null; email
   }
 
   return <div ref={rootRef} className="relative">
-    <button type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open} aria-haspopup="menu" className="flex items-center gap-2 rounded-full p-1.5 pr-2 transition hover:cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <button type="button" onClick={() => setOpen((current) => !current)} aria-expanded={open} aria-haspopup="menu" className="flex items-center gap-2 rounded-full p-1.5 pr-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <span className="grid h-9 w-9 place-items-center rounded-full bg-[#4d3df2] text-xs font-extrabold text-white">{initials}</span>
       <span className="hidden max-w-28 truncate text-sm font-extrabold text-foreground sm:block">{displayName}</span>
       <ChevronDown className={`h-4 w-4 text-muted-foreground transition ${open ? "rotate-180" : ""}`} aria-hidden="true" />
