@@ -1,20 +1,20 @@
 # ReviewFlow
 
-ReviewFlow is a production-ready Next.js SaaS application for QR-powered customer feedback and Google review flows. Customers provide their own experience details, receive AI-assisted review options based only on that input, tap one to copy it, and then open the business's configured Google review page.
+ReviewFlow is a production-ready Next.js SaaS application for QR-powered customer feedback and Google review flows. Customers describe their own experience, receive AI-assisted review options grounded only in that input, tap one to copy it, and are taken to the business's configured Google review page.
 
 ## Architecture
 
-- Next.js App Router with Server Components by default and Client Components for forms, charts, QR previews and clipboard actions.
-- Supabase Auth, PostgreSQL, Storage and RLS for owner/admin/public data separation.
-- Feature modules under `src/features/*`; shared infrastructure under `src/lib/*`.
-- Server-side admin utilities use `SUPABASE_SERVICE_ROLE_KEY` only after server authorization checks.
-- AI review rewriting is behind `/api/ai/review-draft` with OpenRouter support, rate limiting, grounding checks and usage logging.
-- Admins can edit the review-generation style prompt in `/admin/settings`; fixed server-side safety rules still prevent fabricated review details.
-- Paid access is managed through a provider abstraction with Razorpay Subscriptions as the initial provider. Local automated tests may set `BILLING_MOCK_MODE=true`; production startup rejects that setting.
+- **Next.js App Router** — Server Components by default; Client Components for forms, charts, QR previews and clipboard actions.
+- **Supabase** — Auth, PostgreSQL, Storage and RLS enforce owner/admin/public data separation.
+- **Code layout** — feature modules under `src/features/*`; shared infrastructure under `src/lib/*`.
+- **Service-role access** — server-side admin utilities use `SUPABASE_SERVICE_ROLE_KEY` only after server-side authorization checks.
+- **AI review drafting** — served from `/api/ai/review-draft` via OpenRouter, with rate limiting, grounding checks and usage logging.
+- **Prompt customization** — admins can edit the review-generation style prompt in `/admin/settings`; fixed server-side safety rules still prevent fabricated review details.
+- **Billing** — paid access runs through a provider abstraction with Razorpay Subscriptions as the initial provider. Local automated tests may set `BILLING_MOCK_MODE=true`; production startup rejects that setting.
 
 ## Database
 
-Apply the migrations in `supabase/migrations`, then `supabase/seed.sql`.
+Apply the migrations in `supabase/migrations` in filename order, then `supabase/seed.sql`.
 
 The migrations create:
 
@@ -68,7 +68,7 @@ Set `E2E_APP_URL` to a seeded deployment before running `npm run test:e2e`.
 ## Security Notes
 
 - Service-role credentials are used only in server-only modules and route handlers.
-- Open redirects are blocked; Google redirects are always read from the validated stored business URL.
-- Raw IP addresses are not stored by default. IPs are salted and hashed for rate limiting.
-- Google redirect analytics are labeled as "Opened Google review page", not published reviews.
-- AI must preserve sentiment and must not invent facts; local tests cover grounding and low-rating preservation.
+- Open redirects are blocked; Google redirects always read from the validated, stored business URL.
+- Raw IP addresses are not stored by default — IPs are salted and hashed for rate limiting.
+- Google redirect analytics are labeled "Opened Google review page", not published reviews.
+- AI output must preserve sentiment and must not invent facts; local tests cover grounding and low-rating preservation.
