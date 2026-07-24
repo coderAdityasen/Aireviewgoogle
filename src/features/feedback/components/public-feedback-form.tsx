@@ -43,10 +43,21 @@ export function PublicFeedbackForm({
   const [openingGoogle, setOpeningGoogle] = useState(false);
   const [submittingPrivate, setSubmittingPrivate] = useState(false);
   const [privateSubmitted, setPrivateSubmitted] = useState(false);
+  /** null = unlimited (Growth/Pro). Number = remaining on Starter after last action. */
+  const [regenerationsRemaining, setRegenerationsRemaining] = useState<
+    number | null
+  >(null);
+  const [reviewRequestsRemaining, setReviewRequestsRemaining] = useState<
+    number | null
+  >(null);
   const canGenerate = rating !== null;
   /** 1–3 stars → private feedback only. 4–5 stars → Google review path. */
   const isLowRating = rating !== null && rating <= 3;
   const isGoogleEligible = rating !== null && rating >= 4;
+  const canRegenerate =
+    regenerationsRemaining === null || regenerationsRemaining > 0;
+  const canRequestReview =
+    reviewRequestsRemaining === null || reviewRequestsRemaining > 0;
   const ratingTags =
     rating === null ? [] : (experienceTags[rating as keyof RatingTagMap] ?? []);
   const tagOptions = [...new Set([...ratingTags, ...selectedTags])];
@@ -91,6 +102,7 @@ export function PublicFeedbackForm({
     setStreamingSource("");
     setDisplayedDraft("");
     setPrivateSubmitted(false);
+    // Keep regenerationsRemaining — it is owner-level, not per draft session.
   }
 
   function chooseRating(value: number) {
@@ -118,8 +130,17 @@ export function PublicFeedbackForm({
     resetDraft();
   }
 
-  async function generateDraft() {
+  async function generateDraft(options?: { regenerate?: boolean }) {
     if (!canGenerate || rating === null) return;
+    const isRegenerate = Boolean(options?.regenerate);
+    if (isRegenerate && !canRegenerate) {
+      toast.error("Regeneration limit reached on this plan.");
+      return;
+    }
+    if (!isRegenerate && !canRequestReview) {
+      toast.error("Review request limit reached on this plan.");
+      return;
+    }
     resetDraft();
     setGenerating(true);
     try {
@@ -138,6 +159,7 @@ export function PublicFeedbackForm({
           originalNotes: "",
           preferredLanguage: business.default_language ?? "en",
           reviewLength: defaultReviewLength,
+          isRegenerate,
         }),
       });
       const json = await response.json();
@@ -158,6 +180,16 @@ export function PublicFeedbackForm({
       setStreamingSource(firstDraft);
       setDisplayedDraft("");
       setStreaming(true);
+      if (typeof json.regenerationsRemaining === "number") {
+        setRegenerationsRemaining(json.regenerationsRemaining);
+      } else if (json.regenerationsRemaining === null) {
+        setRegenerationsRemaining(null);
+      }
+      if (typeof json.reviewRequestsRemaining === "number") {
+        setReviewRequestsRemaining(json.reviewRequestsRemaining);
+      } else if (json.reviewRequestsRemaining === null) {
+        setReviewRequestsRemaining(null);
+      }
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -444,15 +476,16 @@ export function PublicFeedbackForm({
                     <h3 className="text-xl font-extrabold tracking-[-0.05em] text-[#101b32]">
                       AI generated draft
                     </h3>
-                    {generated ? (
+                    {generated && canRegenerate ? (
                       <button
                         type="button"
-                        onClick={() => void generateDraft()}
+                        onClick={() => void generateDraft({ regenerate: true })}
                         disabled={
                           generating ||
                           streaming ||
                           openingGoogle ||
-                          submittingPrivate
+                          submittingPrivate ||
+                          !canRequestReview
                         }
                         className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#b7d0ff] bg-[#eff5ff] px-3 py-1.5 text-xs font-bold text-[#2463f3] transition hover:bg-[#e0ecff] disabled:cursor-wait disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2463f3]/40"
                         aria-label="Regenerate review draft"
@@ -462,7 +495,17 @@ export function PublicFeedbackForm({
                           aria-hidden="true"
                         />
                         {generating ? "Regenerating…" : "Regenerate"}
+                        {typeof regenerationsRemaining === "number" ? (
+                          <span className="text-[10px] font-semibold opacity-70">
+                            ({regenerationsRemaining} left)
+                          </span>
+                        ) : null}
                       </button>
+                    ) : null}
+                    {generated && !canRegenerate ? (
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-400">
+                        Regeneration limit reached
+                      </span>
                     ) : null}
                   </div>
                   <Textarea
@@ -500,6 +543,7 @@ export function PublicFeedbackForm({
                   }
                   disabled={
                     !canGenerate ||
+                    (!generated && !canRequestReview) ||
                     (generated &&
                       (selectedDraft.trim().length < 10 ||
                         streaming ||
@@ -507,7 +551,7 @@ export function PublicFeedbackForm({
                   }
                   onClick={() => {
                     if (!generated) {
-                      void generateDraft();
+                      void generateDraft({ regenerate: false });
                       return;
                     }
                     if (isLowRating) {
@@ -568,7 +612,7 @@ export function PublicFeedbackForm({
         ) : null}
       </div>
       <footer className="border-t border-[#e7ecf3] bg-[#f8fafc] px-6 py-4 text-center text-[11px] font-semibold text-[#7a8ba3]">
-        ReviewFlow never posts a review for you.
+        Powered by Adsngrow
       </footer>
     </section>
   );

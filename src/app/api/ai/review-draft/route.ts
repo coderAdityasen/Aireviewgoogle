@@ -6,7 +6,12 @@ import { REVIEW_PROMPT_SETTING_KEY, parseReviewPromptConfig, serializeReviewOpti
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getClientIp, hashIp } from "@/lib/security/ip";
 import { assertRateLimit, RateLimitError } from "@/lib/security/rate-limit";
-import { assertAiUsageLimit, recordUsage } from "@/lib/billing/entitlements";
+import {
+  assertAiUsageLimit,
+  assertReviewRequestLimit,
+  recordUsage,
+  type OwnerEntitlements,
+} from "@/lib/billing/entitlements";
 import { instructionsForRating, parseReviewResponseSettings, ratingRuleFor } from "@/lib/feedback/response-settings";
 
 export async function POST(request: NextRequest) {
@@ -20,11 +25,32 @@ export async function POST(request: NextRequest) {
   const { business, campaign, unavailableCampaign } = await getPublicBusiness(parsed.data.businessSlug, parsed.data.campaignToken);
   if (!business || unavailableCampaign) return NextResponse.json({ error: "Feedback page unavailable." }, { status: 404 });
 
+  const isRegenerate = Boolean(parsed.data.isRegenerate);
+  let entitlementsBefore: OwnerEntitlements;
   try {
-    await assertAiUsageLimit(business.owner_id);
+    // Every draft counts as a review request (Starter: 100).
+    entitlementsBefore = await assertReviewRequestLimit(business.owner_id);
+    // Regenerate also counts against the 3-regeneration Starter quota.
+    if (isRegenerate) {
+      entitlementsBefore = await assertAiUsageLimit(business.owner_id);
+    }
   } catch (error) {
-    await createAdminClient().from("ai_usage_logs").insert({ business_id: business.id, provider: process.env.OPENROUTER_API_KEY ? "openrouter" : "reviewflow", model: process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? "unconfigured", status: "blocked", error_message: error instanceof Error ? error.message : "AI usage limit reached" });
-    return NextResponse.json({ error: error instanceof Error ? error.message : "AI generation is not available on this plan." }, { status: 402 });
+    await createAdminClient().from("ai_usage_logs").insert({
+      business_id: business.id,
+      provider: process.env.OPENROUTER_API_KEY ? "openrouter" : "reviewflow",
+      model: process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? "unconfigured",
+      status: "blocked",
+      error_message: error instanceof Error ? error.message : "Plan limit reached",
+    });
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "AI generation is not available on this plan.",
+      },
+      { status: 402 },
+    );
   }
 
   const ipHash = hashIp(getClientIp(request));
@@ -139,7 +165,36 @@ export async function POST(request: NextRequest) {
     })
   ]);
 
-  await recordUsage(business.owner_id, "ai_generation");
+  // Only regenerates consume the 3-regeneration Starter quota.
+  // Review requests are counted via customer_feedback rows (this insert above).
+  if (isRegenerate) {
+    await recordUsage(business.owner_id, "ai_generation");
+  }
 
-  return NextResponse.json({ feedbackId: feedback.id, drafts: usage.drafts });
+  const regenLimit = entitlementsBefore.plan.aiGenerations;
+  const regenerationsLimit = regenLimit < 0 ? null : regenLimit;
+  const regenerationsRemaining =
+    regenLimit < 0
+      ? null
+      : Math.max(
+          0,
+          regenLimit -
+            (entitlementsBefore.usage.aiGenerations + (isRegenerate ? 1 : 0)),
+        );
+
+  const requestLimit = entitlementsBefore.plan.reviewRequests;
+  const reviewRequestsLimit = requestLimit < 0 ? null : requestLimit;
+  const reviewRequestsRemaining =
+    requestLimit < 0
+      ? null
+      : Math.max(0, requestLimit - (entitlementsBefore.usage.reviewRequests + 1));
+
+  return NextResponse.json({
+    feedbackId: feedback.id,
+    drafts: usage.drafts,
+    regenerationsRemaining,
+    regenerationsLimit,
+    reviewRequestsRemaining,
+    reviewRequestsLimit,
+  });
 }

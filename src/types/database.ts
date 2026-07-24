@@ -38,6 +38,8 @@ export interface Profile extends DbRecord {
   avatar_url: string | null;
   account_status: AccountStatus;
   last_activity_at: string | null;
+  /** Starter free-trial end. null for admins / non-trial accounts. */
+  trial_ends_at?: string | null;
   created_at: string;
   updated_at: string;
 }

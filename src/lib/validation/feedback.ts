@@ -14,7 +14,9 @@ export const customerFeedbackSchema = z.object({
   originalNotes: z.string().max(2200).default(""),
   tone: reviewToneSchema.default("friendly"),
   preferredLanguage: z.string().min(2).max(30).default("en"),
-  reviewLength: reviewLengthSchema.default("standard")
+  reviewLength: reviewLengthSchema.default("standard"),
+  /** True when the customer taps Regenerate (counts against regeneration quota). */
+  isRegenerate: z.boolean().optional().default(false),
 });
 
 export const generatedReviewUpdateSchema = z.object({

@@ -150,7 +150,7 @@ export default function HomePage() {
                     Open Google review page
                   </div>
                   <p className="mt-3 text-center text-[11px] font-semibold text-slate-400">
-                    ReviewFlow never posts a review for you.
+                    Powered by Adsngrow
                   </p>
                 </div>
               </div>
@@ -220,9 +220,9 @@ export default function HomePage() {
         <section className="mx-auto max-w-7xl px-4 py-20 sm:px-7 sm:py-24">
           <div className="flex flex-wrap items-end justify-between gap-5">
             <div>
-              <p className="section-eyebrow">Paid plans</p>
+              <p className="section-eyebrow">Plans</p>
               <h2 className="mt-3 text-3xl font-extrabold tracking-[-0.05em] sm:text-4xl">
-                Start with the locations you have
+                Start free for 7 days, upgrade when you grow
               </h2>
             </div>
             <Button asChild variant="outline">
@@ -242,21 +242,35 @@ export default function HomePage() {
                 <CardHeader>
                   <div className="flex items-center justify-between gap-2">
                     <CardTitle>{plan.name}</CardTitle>
-                    {index === 1 ? (
+                    {plan.key === "starter" ? (
+                      <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-emerald-700">
+                        Free trial
+                      </span>
+                    ) : index === 1 ? (
                       <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-primary">
                         Popular
                       </span>
                     ) : null}
                   </div>
                   <p className="pt-2 text-3xl font-extrabold tracking-[-0.05em]">
-                    ₹{plan.priceInr.toLocaleString("en-IN")}
-                    <span className="text-sm font-semibold text-muted-foreground">/month</span>
+                    {plan.key === "starter" ? (
+                      <>
+                        Free
+                        <span className="text-sm font-semibold text-muted-foreground"> / 7 days</span>
+                      </>
+                    ) : (
+                      <>
+                        ₹{plan.priceInr.toLocaleString("en-IN")}
+                        <span className="text-sm font-semibold text-muted-foreground">/month</span>
+                      </>
+                    )}
                   </p>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm font-medium text-muted-foreground">
-                    {plan.businesses} location{plan.businesses === 1 ? "" : "s"} and{" "}
-                    {plan.qrCampaigns} QR campaigns.
+                    {plan.businesses} location{plan.businesses === 1 ? "" : "s"} ·{" "}
+                    {plan.qrCampaigns} QR ·{" "}
+                    {plan.aiGenerations < 0 ? "Unlimited" : plan.aiGenerations} AI regenerations
                   </p>
                 </CardContent>
               </Card>

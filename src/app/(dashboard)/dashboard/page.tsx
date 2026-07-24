@@ -35,10 +35,24 @@ export default async function DashboardPage() {
 
     <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
       <Card><CardHeader className="flex-row items-center justify-between"><div><CardTitle>Locations</CardTitle><p className="mt-1 text-sm font-medium text-muted-foreground">Your active review destinations.</p></div><Button asChild size="sm"><Link href="/onboarding">Add location</Link></Button></CardHeader><CardContent className="space-y-2">{metrics.businesses.map((business) => <div key={business.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border/70 bg-card px-4 py-3 transition-colors hover:border-primary/20 hover:bg-muted/30"><div className="min-w-0"><Link className="truncate text-sm font-extrabold hover:text-primary" href={`/dashboard/businesses/${business.id}`}>{business.name}</Link><p className="mt-1 text-xs font-medium text-muted-foreground">{business.is_active ? "Accepting customer feedback" : "Disabled"}</p></div><Badge variant={business.is_active ? "success" : "warning"}>{business.is_active ? "Active" : "Disabled"}</Badge></div>)}</CardContent></Card>
-      <div className="space-y-6"><Card><CardHeader className="flex-row items-center justify-between"><div><CardTitle>Plan usage</CardTitle><p className="mt-1 text-sm font-medium text-muted-foreground">{entitlements.plan.name} plan</p></div><Button asChild variant="outline" size="sm"><Link href="/billing">Manage</Link></Button></CardHeader><CardContent className="space-y-4"><Usage label="Locations" value={entitlements.usage.businesses} limit={entitlements.plan.businesses} /><Usage label="QR campaigns" value={entitlements.usage.qrCampaigns} limit={entitlements.plan.qrCampaigns} /><Usage label="AI drafts" value={entitlements.usage.aiGenerations} limit={entitlements.plan.aiGenerations} /></CardContent></Card><Card><CardHeader><CardTitle>Recent activity</CardTitle></CardHeader><CardContent><ActivityFeed items={metrics.recentActivity.slice(0, 5).map((item) => ({ label: eventLabel(item.eventType), detail: `${item.businessName} · ${new Date(item.createdAt).toLocaleString()}`, createdAt: item.createdAt }))} /></CardContent></Card></div>
+      <div className="space-y-6"><Card><CardHeader className="flex-row items-center justify-between"><div><CardTitle>Plan usage</CardTitle><p className="mt-1 text-sm font-medium text-muted-foreground">{entitlements.plan.name} plan</p></div><Button asChild variant="outline" size="sm"><Link href="/billing">Manage</Link></Button></CardHeader><CardContent className="space-y-4"><Usage label="Locations" value={entitlements.usage.businesses} limit={entitlements.plan.businesses} /><Usage label="Review requests" value={entitlements.usage.reviewRequests} limit={entitlements.plan.reviewRequests} /><Usage label="Regenerations" value={entitlements.usage.aiGenerations} limit={entitlements.plan.aiGenerations} /></CardContent></Card><Card><CardHeader><CardTitle>Recent activity</CardTitle></CardHeader><CardContent><ActivityFeed items={metrics.recentActivity.slice(0, 5).map((item) => ({ label: eventLabel(item.eventType), detail: `${item.businessName} · ${new Date(item.createdAt).toLocaleString()}`, createdAt: item.createdAt }))} /></CardContent></Card></div>
     </div>
   </div>;
 }
 
-function Usage({ label, value, limit }: { label: string; value: number; limit: number }) { const width = Math.min(100, Math.round((value / limit) * 100)); return <div><div className="flex justify-between text-sm font-bold"><span>{label}</span><span className="text-muted-foreground">{value}/{limit}</span></div><div className="mt-2 h-2 rounded-full bg-muted"><div className="h-2 rounded-full bg-primary transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${width}%` }} /></div></div>; }
+function Usage({ label, value, limit }: { label: string; value: number; limit: number }) {
+  const unlimited = limit < 0;
+  const width = unlimited ? 8 : Math.min(100, Math.round((value / Math.max(limit, 1)) * 100));
+  return (
+    <div>
+      <div className="flex justify-between text-sm font-bold">
+        <span>{label}</span>
+        <span className="text-muted-foreground">{unlimited ? `${value} / ∞` : `${value}/${limit}`}</span>
+      </div>
+      <div className="mt-2 h-2 rounded-full bg-muted">
+        <div className="h-2 rounded-full bg-primary transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${width}%` }} />
+      </div>
+    </div>
+  );
+}
 function eventLabel(eventType: string) { const labels: Record<string, string> = { qr_scan: "QR scan", review_generated: "Draft generated", review_copied: "Draft copied", google_redirect_clicked: "Opened Google review page", private_feedback_submitted: "Private feedback submitted", page_view: "Page viewed" }; return labels[eventType] ?? eventType; }

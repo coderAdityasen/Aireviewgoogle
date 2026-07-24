@@ -19,12 +19,25 @@ export default async function EditBusinessPage({ params, searchParams }: { param
       <SettingsTabs businessId={business.id} activeTab={showingResponseSettings ? "responses" : "configuration"} />
 
       {showingResponseSettings ? (
-        <Card className="rounded-t-none border-slate-200 shadow-[0_10px_28px_rgba(35,52,84,0.05)]">
-          <CardHeader className="px-6 pb-5 pt-7 sm:px-10 sm:pt-9">
-            <CardTitle className="text-2xl tracking-[-0.05em]">{business.name} response settings</CardTitle>
-            <CardDescription className="max-w-3xl text-sm leading-6">Control the grounded draft style, rating guidance and customer-selectable options for this location.</CardDescription>
+        <Card className="rounded-t-none border-slate-200 bg-white shadow-sm">
+          <CardHeader className="space-y-1 border-b border-slate-100 px-6 py-6 sm:px-10">
+            <CardTitle className="text-xl font-extrabold tracking-[-0.04em] text-slate-900">
+              Responses
+            </CardTitle>
+            <CardDescription className="text-sm text-slate-500">
+              Simple controls for how customers rate and describe their visit at {business.name}.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="px-6 pb-8 sm:px-10 sm:pb-10"><ResponseSettingsForm businessId={business.id} settings={responseSettingsForForm(business.review_settings, { experienceTags: business.experience_tags, lowRatingSupportMessage: business.low_rating_support_message, contactFields: business.contact_fields })} /></CardContent>
+          <CardContent className="px-6 py-8 sm:px-10">
+            <ResponseSettingsForm
+              businessId={business.id}
+              settings={responseSettingsForForm(business.review_settings, {
+                experienceTags: business.experience_tags,
+                lowRatingSupportMessage: business.low_rating_support_message,
+                contactFields: business.contact_fields,
+              })}
+            />
+          </CardContent>
         </Card>
       ) : (
         <Card className="rounded-t-none border-slate-200 shadow-[0_10px_28px_rgba(35,52,84,0.05)]">

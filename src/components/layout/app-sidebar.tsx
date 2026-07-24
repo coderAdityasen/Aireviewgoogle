@@ -40,11 +40,26 @@ const adminNav = [
   ["Feedback", "/admin/feedback", MessageSquare],
 ] as const;
 
-export function AppSidebar({ mode }: { mode: "owner" | "admin" }) {
+export function AppSidebar({
+  mode,
+  planKey,
+  privateFeedback = true,
+}: {
+  mode: "owner" | "admin";
+  planKey?: string | null;
+  /** When false (Starter trial), Private feedback is hidden from the nav. */
+  privateFeedback?: boolean;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const workspaceNav = mode === "owner" ? ownerWorkspaceNav : adminNav;
+  const workspaceNav =
+    mode === "owner"
+      ? ownerWorkspaceNav.filter(
+          ([label]) => privateFeedback || label !== "Private feedback",
+        )
+      : adminNav;
   const accountNav = mode === "owner" ? ownerAccountNav : [];
+  void planKey;
 
   useEffect(() => {
     if (!open) return;
@@ -209,8 +224,8 @@ function Brand({
         href={mode === "owner" ? "/dashboard" : "/admin"}
         className="flex items-center gap-2.5 text-[1.25rem] font-extrabold tracking-[-0.055em]"
       >
-        <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-[#2463f3] text-white shadow-[0_6px_16px_rgba(36,99,243,0.35)]">
-          <PanelsTopLeft className="h-4 w-4" aria-hidden="true" />
+        <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-[#2463f3] text-sm font-extrabold text-white shadow-[0_6px_16px_rgba(36,99,243,0.35)]">
+          R
         </span>
         <span>
           Review<span className="text-[#5b91ff]">Flow</span>

@@ -482,8 +482,8 @@ export async function composePosterPng(
   const footer =
     input.displayName?.trim() ||
     input.campaignName?.trim() ||
-    "Powered by ReviewFlow";
-  ctx.fillText(`Powered by ReviewFlow · ${footer.slice(0, 40)}`, cx, stripY + 18);
+    "Powered by Adsngrow";
+  ctx.fillText(`Powered by Adsngrow · ${footer.slice(0, 40)}`, cx, stripY + 18);
 
   return canvas.toDataURL("image/png");
 }

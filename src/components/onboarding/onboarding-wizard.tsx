@@ -2,9 +2,9 @@
 
 /* eslint-disable @next/next/no-img-element -- the success QR is a generated data URL. */
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ExternalLink, Upload } from "lucide-react";
+import { Check, Upload } from "lucide-react";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/browser";
@@ -14,14 +14,9 @@ import {
   completeOnboardingAction,
 } from "@/features/onboarding/server/actions";
 import { OnboardingStepper } from "@/components/onboarding/onboarding-stepper";
-import {
-  BusinessSearch,
-  type GoogleBusinessResult,
-} from "@/components/onboarding/business-search";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { LoadingSpinner, SuccessState } from "@/components/ui/loading-states";
 import type { PlanKey } from "@/config/plans";
 
@@ -120,31 +115,9 @@ export function OnboardingWizard({
   const [completed, setCompleted] = useState<number[]>(
     initial?.completed_steps?.filter((item) => item <= 3) ?? [],
   );
-  const [manualEntry, setManualEntry] = useState(
-    Boolean(initialDraft.name && !initialDraft.googlePlaceId),
-  );
   const [pending, startTransition] = useTransition();
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [published, setPublished] = useState<PublishedBusiness | null>(null);
-
-  const selectedPlace = useMemo<GoogleBusinessResult | null>(
-    () =>
-      data.googlePlaceId
-        ? {
-            placeId: data.googlePlaceId,
-            name: data.name,
-            address: data.addressLine,
-            category: data.category,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            mapsUrl: data.googleMapsUrl || null,
-            phone: data.phone,
-            website: data.website,
-            reviewUrl: data.googleReviewUrl,
-          }
-        : null,
-    [data],
-  );
 
   const update = <Key extends keyof Data>(key: Key, value: Data[Key]) =>
     setData((current) => ({ ...current, [key]: value }));
@@ -205,50 +178,6 @@ export function OnboardingWizard({
 
   function back() {
     persist(Math.max(1, step - 1));
-  }
-
-  function selectPlace(place: GoogleBusinessResult) {
-    setData((current) => ({
-      ...current,
-      name: place.name,
-      category: place.category || current.category,
-      addressLine: place.address || current.addressLine,
-      phone: place.phone || current.phone,
-      website: place.website || current.website,
-      googleReviewUrl: place.reviewUrl,
-      googlePlaceId: place.placeId,
-      googleMapsUrl: place.mapsUrl || "",
-      latitude: place.latitude,
-      longitude: place.longitude,
-    }));
-    setManualEntry(false);
-    toast.success("Business connected.");
-  }
-
-  function clearPlace() {
-    setData((current) => ({
-      ...current,
-      googlePlaceId: "",
-      googleMapsUrl: "",
-      latitude: null,
-      longitude: null,
-      googleReviewUrl: "",
-    }));
-    setManualEntry(true);
-  }
-
-  function testGoogleLink() {
-    try {
-      const url = normalizeGoogleReviewUrl(data.googleReviewUrl);
-      window.open(url, "_blank", "noopener,noreferrer");
-      toast.success("Google review page opened in a new tab.");
-    } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Add a valid Google review link first.",
-      );
-    }
   }
 
   async function uploadLogo(file: File) {
@@ -315,14 +244,14 @@ export function OnboardingWizard({
             </p>
             <h1 className="mt-2 text-2xl font-extrabold tracking-[-0.055em] sm:text-3xl">
               {step === 1
-                ? "Find your business on Google"
+                ? "Enter your business details"
                 : step === 2
                   ? "Confirm your campaign"
                   : "Test and launch"}
             </h1>
             <p className="mt-3 max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
               {step === 1
-                ? "Search for your business to automatically configure your review campaign."
+                ? "Add your location details. You will paste your Google review link in the next step."
                 : step === 2
                   ? "Review the destination customers will open and adjust the essentials. You can customize the poster later."
                   : "Make sure the customer path feels right, then publish your first campaign."}
@@ -335,74 +264,53 @@ export function OnboardingWizard({
 
         {step === 1 ? (
           <div className="mt-8 space-y-6">
-            <BusinessSearch
-              query={data.name}
-              selected={selectedPlace}
-              onQueryChange={(value) => {
-                update("name", value);
-                if (selectedPlace) clearPlace();
-              }}
-              onSelect={selectPlace}
-              onClear={clearPlace}
-            />
-            <button
-              type="button"
-              className="text-sm font-medium text-primary underline underline-offset-4"
-              onClick={() => setManualEntry((current) => !current)}
-            >
-              {manualEntry
-                ? "Use Google search instead"
-                : "Can’t find your business? Enter it manually"}
-            </button>
-            {manualEntry ? (
-              <div className="grid gap-4 rounded-2xl border bg-muted/40 p-4 sm:grid-cols-2">
-                <Field
-                  label="Business name"
-                  value={data.name}
-                  onChange={(value) => update("name", value)}
-                  required
-                  autoFocus
-                />
-                <Field
-                  label="Category"
-                  value={data.category}
-                  onChange={(value) => update("category", value)}
-                  required
-                />
-                <Field
-                  className="sm:col-span-2"
-                  label="Address"
-                  value={data.addressLine}
-                  onChange={(value) => update("addressLine", value)}
-                />
-                <Field
-                  label="City"
-                  value={data.city}
-                  onChange={(value) => update("city", value)}
-                />
-                <Field
-                  label="State"
-                  value={data.state}
-                  onChange={(value) => update("state", value)}
-                />
-                <Field
-                  label="Country"
-                  value={data.country}
-                  onChange={(value) => update("country", value)}
-                />
-                <Field
-                  label="Phone"
-                  value={data.phone}
-                  onChange={(value) => update("phone", value)}
-                />
-                <Field
-                  label="Website"
-                  value={data.website}
-                  onChange={(value) => update("website", value)}
-                  type="url"
-                />
-              </div>
-            ) : null}
+            <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 sm:grid-cols-2 sm:p-5">
+              <Field
+                label="Business name"
+                value={data.name}
+                onChange={(value) => update("name", value)}
+                required
+                autoFocus
+              />
+              <Field
+                label="Category"
+                value={data.category}
+                onChange={(value) => update("category", value)}
+                required
+              />
+              <Field
+                className="sm:col-span-2"
+                label="Address"
+                value={data.addressLine}
+                onChange={(value) => update("addressLine", value)}
+              />
+              <Field
+                label="City"
+                value={data.city}
+                onChange={(value) => update("city", value)}
+              />
+              <Field
+                label="State"
+                value={data.state}
+                onChange={(value) => update("state", value)}
+              />
+              <Field
+                label="Country"
+                value={data.country}
+                onChange={(value) => update("country", value)}
+              />
+              <Field
+                label="Phone"
+                value={data.phone}
+                onChange={(value) => update("phone", value)}
+              />
+              <Field
+                label="Website"
+                value={data.website}
+                onChange={(value) => update("website", value)}
+                type="url"
+              />
+            </div>
           </div>
         ) : null}
 
@@ -410,24 +318,21 @@ export function OnboardingWizard({
           <div className="mt-8 space-y-6">
             <div className="rounded-2xl bg-muted/50 p-4">
               <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Connected business
+                Your business
               </p>
               <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold">{data.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {data.addressLine || "Manual entry"}
+                    {data.addressLine || data.category || "Business details"}
                   </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setStep(1);
-                    setManualEntry(false);
-                  }}
+                  onClick={() => setStep(1)}
                   className="text-sm font-medium text-primary underline underline-offset-4"
                 >
-                  Change business
+                  Edit details
                 </button>
               </div>
             </div>

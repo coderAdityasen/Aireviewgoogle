@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { requireActiveOwner } from "@/lib/auth/roles";
+import { requirePaidOwner } from "@/lib/billing/entitlements";
 import { getOwnerBusinesses } from "@/features/businesses/server/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/layout/empty-state";
 
 type PrivateFeedbackRow = {
@@ -16,10 +18,7 @@ type PrivateFeedbackRow = {
   topic: string | null;
   resolution_status: string | null;
   created_at: string;
-  businesses:
-    | { name: string }
-    | { name: string }[]
-    | null;
+  businesses: { name: string } | { name: string }[] | null;
 };
 
 function businessName(row: PrivateFeedbackRow) {
@@ -47,8 +46,32 @@ function stars(rating: number) {
 }
 
 export default async function FeedbackInboxPage() {
-  // getOwnerBusinesses already enforces an active owner session.
-  await requireActiveOwner();
+  const { entitlements } = await requirePaidOwner();
+
+  if (!entitlements.privateFeedback) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Private feedback</CardTitle>
+          <p className="mt-1 text-sm font-medium text-muted-foreground">
+            Private feedback is not included on the Starter trial.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-2xl border border-primary/15 bg-primary/5 p-6 text-center">
+            <p className="text-sm font-medium leading-6 text-muted-foreground">
+              Upgrade to <strong>Growth</strong> or <strong>Pro</strong> to
+              unlock the private feedback inbox for 1–3 star messages.
+            </p>
+            <Button asChild className="mt-5">
+              <Link href="/billing">Upgrade plan</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const businesses = await getOwnerBusinesses();
 
   if (!businesses.length) {
@@ -63,8 +86,6 @@ export default async function FeedbackInboxPage() {
   const supabase = await createClient();
   const businessIds = businesses.map((business) => business.id);
 
-  // Filter by the owner's business IDs + submitted_privately so only private
-  // inbox items appear (the public Submit path sets this flag).
   const { data, error } = await supabase
     .from("customer_feedback")
     .select(
@@ -99,7 +120,7 @@ export default async function FeedbackInboxPage() {
           <div>
             <CardTitle>Private feedback</CardTitle>
             <p className="mt-1 text-sm font-medium text-muted-foreground">
-              Messages from customers who rated 1–3 stars and chose to submit
+              Messages from customers who rated 1–3 stars and submitted
               privately (not sent to Google).
             </p>
           </div>
@@ -152,11 +173,6 @@ export default async function FeedbackInboxPage() {
                   </time>
                 </div>
               </div>
-              {row.topic ? (
-                <p className="mt-2 text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  {row.topic}
-                </p>
-              ) : null}
               <p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-6 text-foreground/90">
                 {feedbackBody(row)}
               </p>
@@ -165,7 +181,7 @@ export default async function FeedbackInboxPage() {
         ) : (
           <EmptyState
             title="No private feedback yet"
-            description="When customers rate 1–3 stars and press Submit, their message appears here for your team — it is never posted to Google."
+            description="When customers rate 1–3 stars and press Submit, their message appears here."
           />
         )}
       </CardContent>

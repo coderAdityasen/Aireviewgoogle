@@ -11,3 +11,5 @@ test-results
 *.tsbuildinfo
 reference
 .codex
+tools/*
+.grok/*

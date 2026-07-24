@@ -1,11 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useMemo, useState, useTransition } from "react";
 import type { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type UseFormRegisterReturn } from "react-hook-form";
-import { useTransition } from "react";
-import { Check, ShieldCheck, Sparkles } from "lucide-react";
+import { ChevronDown, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,173 +21,592 @@ const languageOptions = [
   ["es", "Spanish"],
   ["fr", "French"],
   ["de", "German"],
-  ["pt", "Portuguese"]
+  ["pt", "Portuguese"],
 ] as const;
 
-const ratingRules = [
-  ["ratingRule5", "5-star guidance", "Keep positive wording grounded in the customer's selected details."],
-  ["ratingRule4", "4-star guidance", "Keep the tone positive but natural and specific."],
-  ["ratingRule3", "3-star guidance", "Preserve balanced or mixed sentiment."],
-  ["ratingRule12", "1–2-star guidance", "Keep concerns constructive. Never rewrite a low rating as praise."]
+const tagFields = [
+  { name: "ratingTags5" as const, label: "5 stars" },
+  { name: "ratingTags4" as const, label: "4 stars" },
+  { name: "ratingTags3" as const, label: "3 stars" },
+  { name: "ratingTags2" as const, label: "2 stars" },
+  { name: "ratingTags1" as const, label: "1 star" },
 ] as const;
 
-const ratingTags = [
-  ["ratingTags5", "5-star options", "Friendly service\nClear communication"],
-  ["ratingTags4", "4-star options", "Helpful staff\nEasy experience"],
-  ["ratingTags3", "3-star options", "What stood out\nWhat could be better"],
-  ["ratingTags2", "2-star options", "Communication\nValue for money"],
-  ["ratingTags1", "1-star options", "What could be improved\nFollow-up support"]
-] as const;
+const SUGGESTED: Record<string, string[]> = {
+  ratingTags5: ["Helpful staff", "Clean place", "Great service", "Fair prices", "Friendly team"],
+  ratingTags4: ["Helpful staff", "Good service", "Clear communication", "Fair prices"],
+  ratingTags3: ["What stood out", "Could be better", "Average wait"],
+  ratingTags2: ["Communication", "Value for money", "Wait time"],
+  ratingTags1: ["Needs improvement", "Follow-up", "Value for money"],
+};
 
-export function ResponseSettingsForm({ businessId, settings }: { businessId: string; settings: ReviewResponseSettings }) {
+function parseList(value: string | undefined) {
+  return (value ?? "")
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function joinTags(tags: string[]) {
+  return [...new Set(tags.map((t) => t.trim()).filter(Boolean))].join("\n");
+}
+
+export function ResponseSettingsForm({
+  businessId,
+  settings,
+}: {
+  businessId: string;
+  settings: ReviewResponseSettings;
+}) {
   const [pending, startTransition] = useTransition();
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [star, setStar] = useState<(typeof tagFields)[number]["name"]>("ratingTags5");
+  const [tagInput, setTagInput] = useState("");
+  const [blockInput, setBlockInput] = useState("");
+
   const form = useForm<z.input<typeof reviewResponseSettingsSchema>>({
     resolver: zodResolver(reviewResponseSettingsSchema),
-    defaultValues: settings
+    defaultValues: settings,
   });
+
   const watched = useWatch({ control: form.control });
   const allowedLanguages = useWatch({ control: form.control, name: "allowedLanguages" }) ?? [];
+  const tagFieldValue = useWatch({ control: form.control, name: star }) ?? "";
+  const tags = useMemo(() => parseList(String(tagFieldValue)), [tagFieldValue]);
+  const blocked = useMemo(
+    () => parseList(String(watched.blockedWords ?? "")),
+    [watched.blockedWords],
+  );
 
   const submit = form.handleSubmit((values) => {
     startTransition(async () => {
       try {
         await updateBusinessResponseSettingsAction(businessId, values);
-        toast.success("Response settings saved.");
+        toast.success("Saved.");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Unable to save response settings.");
+        toast.error(error instanceof Error ? error.message : "Could not save.");
       }
     });
   });
+
+  function setTags(next: string[]) {
+    form.setValue(star, joinTags(next), { shouldDirty: true });
+  }
+
+  function addTag(raw: string) {
+    const value = raw.trim().replace(/\s+/g, " ");
+    if (!value || value.length > 60) return;
+    if (tags.some((t) => t.toLowerCase() === value.toLowerCase())) {
+      setTagInput("");
+      return;
+    }
+    setTags([...tags, value]);
+    setTagInput("");
+  }
 
   function toggleLanguage(code: string) {
     const current = form.getValues("allowedLanguages") ?? [];
     if (current.includes(code) && current.length === 1) return;
     form.setValue(
       "allowedLanguages",
-      current.includes(code) ? current.filter((item) => item !== code) : [...current, code],
-      { shouldDirty: true }
+      current.includes(code) ? current.filter((c) => c !== code) : [...current, code],
+      { shouldDirty: true },
     );
   }
 
+  const suggestions = SUGGESTED[star] ?? [];
+
   return (
-    <form onSubmit={submit} className="space-y-5">
-      <div className="hidden rounded-2xl border border-primary/15 bg-primary/[0.035] p-4 sm:p-5">
-        <div className="flex items-start gap-3">
-          <div className="rounded-xl bg-primary/10 p-2 text-primary"><Sparkles className="h-5 w-5" /></div>
-          <div>
-            <p className="text-sm font-extrabold">Customer response experience</p>
-            <p className="mt-1 max-w-2xl text-xs font-medium leading-5 text-muted-foreground">These controls shape the optional tags and grounded draft shown after a customer chooses a rating. They do not publish or send reviews on a customer’s behalf.</p>
-          </div>
+    <form onSubmit={submit} className="mx-auto max-w-3xl space-y-8">
+      {/* 1. Style — only essentials */}
+      <Section title="Review style" hint="How AI drafts sound by default.">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <SimpleSelect label="Tone" {...form.register("tone")}>
+            <option value="friendly">Friendly</option>
+            <option value="professional">Professional</option>
+            <option value="warm">Warm</option>
+            <option value="concise">Concise</option>
+          </SimpleSelect>
+          <SimpleSelect label="Length" {...form.register("reviewLength")}>
+            <option value="short">Short</option>
+            <option value="standard">Medium</option>
+            <option value="detailed">Long</option>
+          </SimpleSelect>
+          <SimpleSelect label="Voice" {...form.register("writingPerspective")}>
+            <option value="first_person">I visited…</option>
+            <option value="third_person">They visited…</option>
+          </SimpleSelect>
         </div>
-      </div>
+      </Section>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <SettingsSection title="AI review style" description="Set the default voice used by the review assistant.">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SelectField label="Tone" {...form.register("tone")}>
-              <option value="friendly">Friendly</option>
-              <option value="professional">Professional</option>
-              <option value="warm">Warm</option>
-              <option value="concise">Concise</option>
-            </SelectField>
-            <SelectField label="Review length" {...form.register("reviewLength")}>
-              <option value="short">Short</option>
-              <option value="standard">Standard</option>
-              <option value="detailed">Detailed</option>
-            </SelectField>
-          </div>
-          <SelectField label="Writing perspective" {...form.register("writingPerspective")}>
-            <option value="first_person">First person — “I visited…”</option>
-            <option value="third_person">Third person — “The customer…”</option>
-          </SelectField>
-        </SettingsSection>
-
-        <SettingsSection title="Language settings" description="Choose the default language available to the assistant. The customer-facing flow keeps language selection out of the way.">
-          <Field label="Default language">
-            <Input {...form.register("defaultLanguage")} placeholder="en" />
-          </Field>
-          <ToggleRow label="Auto-detect customer language" description="Use detected language only when it is clear from the customer input." checked={watched.autoDetectLanguage ?? false} onChange={(value) => form.setValue("autoDetectLanguage", value, { shouldDirty: true })} />
-          <div>
-            <Label>Allowed languages</Label>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {languageOptions.map(([code, label]) => {
-                const selected = allowedLanguages.includes(code);
-                return <button key={code} type="button" aria-pressed={selected} onClick={() => toggleLanguage(code)} className={`rounded-full border px-3 py-2 text-xs font-extrabold transition ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"}`}>{label}</button>;
-              })}
-            </div>
-          </div>
-        </SettingsSection>
-      </div>
-
-      <div className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
-        <SettingsSection title="Rating guidance" description="Give the assistant a sentiment guardrail for each rating. These instructions never override the customer’s selected rating or facts.">
-          {ratingRules.map(([name, label, placeholder]) => <Field key={name} label={label}><Textarea {...form.register(name)} placeholder={placeholder} className="min-h-20" /></Field>)}
-        </SettingsSection>
-
-        <SettingsSection title="Prompt guidance" description="Add your brand’s writing preferences without adding facts about a customer’s experience.">
-          <Field label="Positive-rating instructions"><Textarea {...form.register("positiveInstructions")} placeholder="Keep positive wording clear and specific to the selected tags." className="min-h-28" /></Field>
-          <Field label="Lower-rating instructions"><Textarea {...form.register("negativeInstructions")} placeholder="Preserve concerns and avoid forced praise." className="min-h-28" /></Field>
-        </SettingsSection>
-      </div>
-
-      <SettingsSection title="Customer-selectable tags" description="These are the optional chips shown after the customer selects a rating. Keep them factual and easy to recognize.">
-        <div className="grid gap-4 md:grid-cols-2">
-          {ratingTags.map(([name, label, placeholder]) => <Field key={name} label={label}><Textarea {...form.register(name)} placeholder={placeholder} className="min-h-24" /></Field>)}
+      {/* 2. Tags — primary owner task */}
+      <Section
+        title="Customer tags"
+        hint="Chips customers can tap after they rate. Keep them short and clear."
+      >
+        <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+          {tagFields.map((field) => {
+            const count = parseList(String(form.watch(field.name) ?? "")).length;
+            const active = star === field.name;
+            return (
+              <button
+                key={field.name}
+                type="button"
+                onClick={() => {
+                  setStar(field.name);
+                  setTagInput("");
+                }}
+                className={`flex-1 rounded-lg px-2 py-2.5 text-center text-xs font-bold transition sm:text-sm ${
+                  active
+                    ? "bg-white text-slate-900 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                {field.label}
+                {count > 0 ? (
+                  <span className="ml-1 text-[10px] font-semibold text-slate-400">
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
-        <Field label="Low-rating private follow-up message"><Textarea {...form.register("lowRatingSupportMessage")} placeholder="Tell us what we can improve and our team can follow up privately." /></Field>
-        <Field label="Optional contact fields"><Input {...form.register("contactFields")} placeholder="name,email" /><p className="mt-1 text-xs font-medium text-muted-foreground">Comma-separated: name, email, phone. These are only shown when a customer chooses private follow-up.</p></Field>
-      </SettingsSection>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <SettingsSection title="Smart generation rules" description="Keep the assistant predictable and grounded.">
-          <ToggleRow label="Mention selected tags" description="Use a chosen tag only when it fits the customer’s draft." checked={watched.mentionSelectedTags ?? false} onChange={(value) => form.setValue("mentionSelectedTags", value, { shouldDirty: true })} />
-          <ToggleRow label="Generate distinct options" description="Avoid returning duplicate drafts in one generation." checked={watched.generateUniqueReviews ?? false} onChange={(value) => form.setValue("generateUniqueReviews", value, { shouldDirty: true })} />
-          <ToggleRow label="Natural customer voice" description="Prefer clear language over marketing copy." checked={watched.humanLikeLanguage ?? false} onChange={(value) => form.setValue("humanLikeLanguage", value, { shouldDirty: true })} />
-          <ToggleRow label="Include business name" description="Use it only when it is already present in the customer’s own input." checked={watched.includeBusinessName ?? false} onChange={(value) => form.setValue("includeBusinessName", value, { shouldDirty: true })} />
-          <ToggleRow label="Mention location" description="Never invent or infer a location." checked={watched.mentionLocation ?? false} onChange={(value) => form.setValue("mentionLocation", value, { shouldDirty: true })} />
-        </SettingsSection>
+        <div className="flex gap-2">
+          <Input
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addTag(tagInput);
+              }
+            }}
+            placeholder="Type a tag and press Add"
+            maxLength={60}
+            className="h-11 rounded-xl border-slate-200"
+          />
+          <Button
+            type="button"
+            onClick={() => addTag(tagInput)}
+            disabled={!tagInput.trim()}
+            className="h-11 shrink-0 rounded-xl px-5"
+          >
+            <Plus className="mr-1 h-4 w-4" />
+            Add
+          </Button>
+        </div>
 
-        <SettingsSection title="Review safeguards" description="Controls that protect customers and keep generated copy compliant.">
-          <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-900"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" /><p className="text-xs font-semibold leading-5">ReviewFlow always grounds drafts in customer-provided details and never posts to Google automatically.</p></div>
-          <ToggleRow label="Profanity filter" description="Remove unsafe language from generated wording." checked={watched.profanityFilter ?? false} onChange={(value) => form.setValue("profanityFilter", value, { shouldDirty: true })} />
-          <ToggleRow label="Avoid generic phrases" description="Prefer wording connected to the selected rating and tags." checked={watched.avoidGenericPhrases ?? false} onChange={(value) => form.setValue("avoidGenericPhrases", value, { shouldDirty: true })} />
-          <ToggleRow label="Search-friendly wording" description="Keep it natural; this never adds keywords or claims." checked={watched.seoFriendlyReviews ?? false} onChange={(value) => form.setValue("seoFriendlyReviews", value, { shouldDirty: true })} />
-          <Field label="Words to avoid"><Input {...form.register("blockedWords")} placeholder="Optional comma-separated words" /></Field>
-          <Field label={`Minimum draft length (${watched.minimumReviewLength ?? 20} words)`}><input {...form.register("minimumReviewLength", { valueAsNumber: true })} type="range" min="10" max="100" step="5" className="mt-3 w-full accent-primary" /></Field>
-        </SettingsSection>
+        {tags.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
+              >
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => setTags(tags.filter((t) => t !== tag))}
+                  className="rounded-full p-0.5 opacity-70 hover:bg-white/15 hover:opacity-100"
+                  aria-label={`Remove ${tag}`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400">No tags for this rating yet.</p>
+        )}
+
+        <div className="flex flex-wrap gap-2">
+          {suggestions.map((tag) => {
+            const on = tags.some((t) => t.toLowerCase() === tag.toLowerCase());
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() =>
+                  on
+                    ? setTags(tags.filter((t) => t.toLowerCase() !== tag.toLowerCase()))
+                    : setTags([...tags, tag])
+                }
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  on
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-dashed border-slate-300 bg-white text-slate-500 hover:border-slate-400 hover:text-slate-800"
+                }`}
+              >
+                {on ? "✓ " : "+ "}
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+
+        {tagFields.map((f) => (
+          <input key={f.name} type="hidden" {...form.register(f.name)} />
+        ))}
+      </Section>
+
+      {/* 3. Language — compact */}
+      <Section title="Language" hint="Default language for AI drafts.">
+        <div className="flex flex-wrap gap-2">
+          {languageOptions.map(([code, label]) => {
+            const selected = allowedLanguages.includes(code);
+            return (
+              <button
+                key={code}
+                type="button"
+                onClick={() => toggleLanguage(code)}
+                className={`rounded-full px-3.5 py-2 text-sm font-semibold transition ${
+                  selected
+                    ? "bg-slate-900 text-white"
+                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <input type="hidden" {...form.register("defaultLanguage")} />
+        {/* Keep first selected as default language for simplicity */}
+        <p className="text-xs text-slate-400">
+          Tap to allow languages. Default:{" "}
+          <span className="font-semibold text-slate-600">
+            {languageOptions.find(([c]) => c === (watched.defaultLanguage ?? "en"))?.[1] ??
+              "English"}
+          </span>
+          {" · "}
+          <button
+            type="button"
+            className="font-semibold text-primary underline-offset-2 hover:underline"
+            onClick={() => {
+              const first = allowedLanguages[0] ?? "en";
+              form.setValue("defaultLanguage", first, { shouldDirty: true });
+            }}
+          >
+            Use first selected as default
+          </button>
+        </p>
+      </Section>
+
+      {/* Advanced — collapsed by default */}
+      <div className="border-t border-slate-100 pt-2">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced((v) => !v)}
+          className="flex w-full items-center justify-between rounded-xl px-1 py-3 text-left text-sm font-bold text-slate-700 hover:text-slate-900"
+        >
+          <span>Advanced options</span>
+          <ChevronDown
+            className={`h-4 w-4 text-slate-400 transition ${showAdvanced ? "rotate-180" : ""}`}
+          />
+        </button>
+
+        {showAdvanced ? (
+          <div className="mt-2 space-y-8 border-t border-slate-100 pt-6">
+            <Section title="Guidance by rating" hint="Optional notes for the AI per star level.">
+              {(
+                [
+                  ["ratingRule5", "5 stars"],
+                  ["ratingRule4", "4 stars"],
+                  ["ratingRule3", "3 stars"],
+                  ["ratingRule12", "1–2 stars"],
+                ] as const
+              ).map(([name, label]) => (
+                <div key={name}>
+                  <Label className="text-xs font-semibold text-slate-500">{label}</Label>
+                  <Input
+                    {...form.register(name)}
+                    className="mt-1.5 h-10 rounded-xl border-slate-200"
+                  />
+                </div>
+              ))}
+            </Section>
+
+            <Section title="Extra AI instructions" hint="Optional. Leave blank if unsure.">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label className="text-xs font-semibold text-slate-500">
+                    Positive reviews
+                  </Label>
+                  <Textarea
+                    {...form.register("positiveInstructions")}
+                    className="mt-1.5 min-h-24 rounded-xl border-slate-200"
+                    placeholder="Optional"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-500">
+                    Lower ratings
+                  </Label>
+                  <Textarea
+                    {...form.register("negativeInstructions")}
+                    className="mt-1.5 min-h-24 rounded-xl border-slate-200"
+                    placeholder="Optional"
+                  />
+                </div>
+              </div>
+            </Section>
+
+            <Section title="Quick toggles">
+              <div className="divide-y divide-slate-100 rounded-xl border border-slate-150">
+                {(
+                  [
+                    ["mentionSelectedTags", "Use selected tags in draft"],
+                    ["generateUniqueReviews", "Avoid duplicate drafts"],
+                    ["humanLikeLanguage", "Natural language"],
+                    ["profanityFilter", "Filter bad words"],
+                    ["avoidGenericPhrases", "Avoid generic praise"],
+                    ["includeBusinessName", "Include business name"],
+                    ["mentionLocation", "Mention location"],
+                    ["seoFriendlyReviews", "Search-friendly wording"],
+                    ["autoDetectLanguage", "Auto-detect language"],
+                  ] as const
+                ).map(([name, label]) => (
+                  <Toggle
+                    key={name}
+                    label={label}
+                    checked={Boolean(watched[name])}
+                    onChange={(v) => form.setValue(name, v, { shouldDirty: true })}
+                  />
+                ))}
+              </div>
+            </Section>
+
+            <Section title="Blocked words" hint="Words AI should avoid.">
+              <div className="flex gap-2">
+                <Input
+                  value={blockInput}
+                  onChange={(e) => setBlockInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const w = blockInput.trim();
+                      if (!w) return;
+                      form.setValue(
+                        "blockedWords",
+                        [...blocked, w].join(", "),
+                        { shouldDirty: true },
+                      );
+                      setBlockInput("");
+                    }
+                  }}
+                  placeholder="Add a word"
+                  className="h-10 rounded-xl"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10 rounded-xl"
+                  onClick={() => {
+                    const w = blockInput.trim();
+                    if (!w) return;
+                    form.setValue("blockedWords", [...blocked, w].join(", "), {
+                      shouldDirty: true,
+                    });
+                    setBlockInput("");
+                  }}
+                >
+                  Block
+                </Button>
+              </div>
+              {blocked.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {blocked.map((w) => (
+                    <span
+                      key={w}
+                      className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
+                    >
+                      {w}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          form.setValue(
+                            "blockedWords",
+                            blocked.filter((x) => x !== w).join(", "),
+                            { shouldDirty: true },
+                          )
+                        }
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <input type="hidden" {...form.register("blockedWords")} />
+            </Section>
+
+            <Section title="Fine-tuning">
+              <div className="grid gap-6 sm:grid-cols-2">
+                <Range
+                  label="Creativity"
+                  value={watched.creativity ?? 35}
+                  register={form.register("creativity", { valueAsNumber: true })}
+                />
+                <Range
+                  label="Formality"
+                  value={watched.formality ?? 50}
+                  register={form.register("formality", { valueAsNumber: true })}
+                />
+                <div className="sm:col-span-2">
+                  <Range
+                    label={`Min. words (${watched.minimumReviewLength ?? 20})`}
+                    value={watched.minimumReviewLength ?? 20}
+                    min={10}
+                    max={100}
+                    register={form.register("minimumReviewLength", {
+                      valueAsNumber: true,
+                    })}
+                    showPercent={false}
+                  />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label className="text-xs font-semibold text-slate-500">
+                    Private follow-up message
+                  </Label>
+                  <Textarea
+                    {...form.register("lowRatingSupportMessage")}
+                    className="mt-1.5 min-h-20 rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold text-slate-500">
+                    Contact fields
+                  </Label>
+                  <Input
+                    {...form.register("contactFields")}
+                    className="mt-1.5 h-10 rounded-xl"
+                    placeholder="name,email"
+                  />
+                </div>
+              </div>
+            </Section>
+          </div>
+        ) : null}
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <SettingsSection title="Assistant creativity" description="A modest range keeps outputs varied without drifting away from customer input.">
-          <RangeField label="Creativity" value={watched.creativity ?? 35} left="Conservative" right="Expressive" register={form.register("creativity", { valueAsNumber: true })} />
-          <RangeField label="Formality" value={watched.formality ?? 50} left="Casual" right="Formal" register={form.register("formality", { valueAsNumber: true })} />
-        </SettingsSection>
-      </div>
-
-      <div className="flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-xs font-medium text-muted-foreground">Settings are saved for this business location only.</p>
-        <Button type="submit" loading={pending} loadingLabel="Saving settings..."><Check className="mr-2 h-4 w-4" />Save response settings</Button>
+      {/* Save */}
+      <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-6">
+        <p className="text-xs text-slate-400">Only this location is updated.</p>
+        <Button type="submit" loading={pending} loadingLabel="Saving…" className="rounded-xl px-6">
+          Save
+        </Button>
       </div>
     </form>
   );
 }
 
-function SettingsSection({ title, children }: { title: string; description: string; children: ReactNode }) {
-  return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-none sm:p-5"><div className="mb-5"><h3 className="text-base font-extrabold tracking-[-0.03em]">{title}</h3></div><div className="space-y-4">{children}</div></section>;
+function Section({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-4">
+      <div>
+        <h3 className="text-base font-extrabold tracking-[-0.03em] text-slate-900">
+          {title}
+        </h3>
+        {hint ? <p className="mt-0.5 text-sm text-slate-500">{hint}</p> : null}
+      </div>
+      <div className="space-y-3">{children}</div>
+    </section>
+  );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <div><Label>{label}</Label><div className="mt-2">{children}</div></div>;
+function SimpleSelect({
+  label,
+  children,
+  ...props
+}: { label: string; children: ReactNode } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div>
+      <Label className="text-xs font-semibold text-slate-500">{label}</Label>
+      <select
+        {...props}
+        className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-400"
+      >
+        {children}
+      </select>
+    </div>
+  );
 }
 
-function SelectField({ label, children, ...props }: { label: string; children: ReactNode } & React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <Field label={label}><select {...props} className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm font-semibold outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15">{children}</select></Field>;
+function Toggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3">
+      <span className="text-sm font-medium text-slate-700">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition ${
+          checked ? "bg-slate-900" : "bg-slate-200"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+            checked ? "left-[1.35rem]" : "left-0.5"
+          }`}
+        />
+      </button>
+    </label>
+  );
 }
 
-function ToggleRow({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (value: boolean) => void }) {
-  return <label className="flex cursor-pointer items-center justify-between gap-4 border-b border-border/70 py-3 last:border-b-0"><span><span className="block text-sm font-bold">{label}</span><span className="mt-1 block text-xs font-medium leading-5 text-muted-foreground">{description}</span></span><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-5 w-5 shrink-0 accent-primary" /></label>;
-}
-
-function RangeField({ label, value, left, right, register }: { label: string; value: number; left: string; right: string; register: UseFormRegisterReturn }) {
-  return <div><div className="flex items-center justify-between gap-3"><Label>{label}</Label><span className="text-sm font-extrabold text-primary">{value}%</span></div><input {...register} type="range" min="0" max="100" step="5" className="mt-3 w-full accent-primary" /><div className="mt-1 flex justify-between text-[10px] font-extrabold uppercase tracking-[0.1em] text-muted-foreground"><span>{left}</span><span>{right}</span></div></div>;
+function Range({
+  label,
+  value,
+  register,
+  min = 0,
+  max = 100,
+  showPercent = true,
+}: {
+  label: string;
+  value: number;
+  register: UseFormRegisterReturn;
+  min?: number;
+  max?: number;
+  showPercent?: boolean;
+}) {
+  return (
+    <div>
+      <div className="flex justify-between text-sm">
+        <span className="font-semibold text-slate-700">{label}</span>
+        <span className="font-bold text-slate-900">
+          {value}
+          {showPercent ? "%" : ""}
+        </span>
+      </div>
+      <input
+        {...register}
+        type="range"
+        min={min}
+        max={max}
+        step={5}
+        className="mt-2 w-full accent-slate-900"
+      />
+    </div>
+  );
 }

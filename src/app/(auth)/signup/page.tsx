@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { AuthForm } from "@/features/auth/components/auth-form";
+import { BrandMark } from "@/components/layout/brand-mark";
 import {
   Card,
   CardContent,
@@ -27,15 +27,7 @@ export default async function SignupPage({
           }}
         />
         <div className="relative">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2.5 text-lg font-extrabold tracking-[-0.05em] transition-opacity hover:opacity-90"
-          >
-            <span className="grid h-9 w-9 place-items-center rounded-[11px] bg-primary text-sm font-extrabold text-white shadow-[0_6px_16px_rgba(36,99,243,0.35)]">
-              R
-            </span>
-            Review<span className="text-[#5b91ff]">Flow</span>
-          </Link>
+          <BrandMark light href="/" />
           <p className="mt-16 text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#75a7ff]">
             ReviewFlow workspace
           </p>
@@ -64,15 +56,7 @@ export default async function SignupPage({
       </div>
 
       <div className="flex flex-col items-center justify-center px-4 py-10 sm:px-8">
-        <Link
-          href="/"
-          className="mb-8 flex items-center gap-2 text-lg font-extrabold tracking-[-0.05em] lg:hidden"
-        >
-          <span className="grid h-8 w-8 place-items-center rounded-[10px] bg-primary text-sm text-white">
-            R
-          </span>
-          Review<span className="text-primary">Flow</span>
-        </Link>
+        <BrandMark className="mb-8 lg:hidden" compact />
         <Card className="w-full max-w-md border-border/70 shadow-[0_24px_65px_rgba(35,52,84,0.1)]">
           <CardHeader className="space-y-2 pb-4">
             <CardTitle className="text-2xl tracking-[-0.04em]">Create your account</CardTitle>

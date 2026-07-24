@@ -3,7 +3,7 @@
 import { Check } from "lucide-react";
 
 export function OnboardingStepper({ currentStep, completedSteps }: { currentStep: number; completedSteps: number[] }) {
-  const steps = ["Find business", "Confirm campaign", "Launch"];
+  const steps = ["Business details", "Confirm campaign", "Launch"];
   const progress = Math.min(100, Math.max(0, ((currentStep - 1) / (steps.length - 1)) * 100));
 
   return <ol className="relative grid grid-cols-3 gap-3" aria-label="Onboarding progress">

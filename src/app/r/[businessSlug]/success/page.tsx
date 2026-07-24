@@ -25,7 +25,7 @@ export default function ReviewSuccessPage() {
         </h1>
         <p className="mx-auto mt-3 max-w-sm text-sm font-medium leading-6 text-muted-foreground">
           Paste your copied text into Google, select your rating and submit it directly on Google.
-          ReviewFlow never posts for you.
+          Powered by Adsngrow
         </p>
         <ol className="mx-auto mt-8 max-w-xs space-y-3 text-left text-sm font-medium text-muted-foreground">
           {[
