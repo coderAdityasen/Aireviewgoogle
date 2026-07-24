@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { getOwnerBusinesses } from "@/features/businesses/server/queries";
-import { getCurrentProfile, getCurrentUser } from "@/lib/auth/roles";
+import { getDashboardNavCounts } from "@/features/businesses/server/gmb-actions";
+import { getCurrentProfile } from "@/lib/auth/roles";
 import { requirePaidOwner } from "@/lib/billing/entitlements";
 
 export const dynamic = "force-dynamic";
@@ -10,13 +11,14 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Gate the entire dashboard: expired starter trial → /billing
-  const { entitlements } = await requirePaidOwner();
-  const [businesses, user, profile] = await Promise.all([
+  const { user, entitlements } = await requirePaidOwner();
+  const [businesses, profile, navCounts] = await Promise.all([
     getOwnerBusinesses(),
-    getCurrentUser(),
     getCurrentProfile(),
+    getDashboardNavCounts(user.id),
   ]);
+
+  // GMB suggestions stay empty until the user clicks Generate on the GMB page.
 
   return (
     <AppShell
@@ -26,6 +28,7 @@ export default async function DashboardLayout({
       account={{ name: profile?.full_name, email: user?.email }}
       planKey={entitlements.plan.key}
       privateFeedback={entitlements.privateFeedback}
+      navCounts={navCounts}
     >
       {children}
     </AppShell>

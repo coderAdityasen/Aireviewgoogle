@@ -44,7 +44,14 @@ export async function createBusinessAction(input: unknown) {
   const { user } = await requirePaidOwner();
   await assertBusinessLimit(user.id);
   await assertQrCampaignLimit(user.id);
-  const parsed = businessSchema.parse(input);
+
+  const parsedResult = businessSchema.safeParse(input);
+  if (!parsedResult.success) {
+    const issue = parsedResult.error.issues[0];
+    throw new Error(issue?.message ?? "Check the business details and try again.");
+  }
+  const parsed = parsedResult.data;
+
   const supabase = await createClient();
   const slug = await uniqueBusinessSlug(parsed.name);
 
@@ -86,13 +93,18 @@ export async function createBusinessAction(input: unknown) {
     .select("id")
     .single();
 
-  if (error) throw error;
+  if (error) {
+    throw new Error(error.message || "Unable to create the business.");
+  }
 
-  await supabase.from("qr_campaigns").insert({
+  const { error: campaignError } = await supabase.from("qr_campaigns").insert({
     business_id: data.id,
-    name: "General QR",
+    name: parsed.campaignName?.trim() || "General QR",
     is_active: true
   });
+  if (campaignError) {
+    throw new Error(campaignError.message || "Business created, but QR campaign failed.");
+  }
 
   await createAdminClient().from("audit_logs").insert({
     actor_id: user.id,
@@ -103,6 +115,7 @@ export async function createBusinessAction(input: unknown) {
   });
 
   revalidatePath("/dashboard");
+  revalidatePath("/dashboard/businesses");
   redirect(`/dashboard/businesses/${data.id}`);
 }
 

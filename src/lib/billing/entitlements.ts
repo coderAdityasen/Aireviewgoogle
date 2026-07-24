@@ -54,6 +54,8 @@ export type OwnerEntitlements = {
   trialExpired: boolean;
   privateFeedback: boolean;
   reviewsLimit: number | null;
+  /** AI GMB / Google Business Profile suggestions (Growth & Pro). */
+  gmbSuggestions: boolean;
   /** null = unlimited */
   aiRemaining: number | null;
   /** null = unlimited */
@@ -286,6 +288,7 @@ export const getOwnerEntitlements = cache(
       trialExpired: trialExpired && !subscriptionPaid && !overridePaid,
       privateFeedback: plan.privateFeedback,
       reviewsLimit: plan.reviewsLimit,
+      gmbSuggestions: Boolean(plan.gmbSuggestions),
       aiRemaining,
       reviewRequestsRemaining,
     };
@@ -313,6 +316,15 @@ export const requirePaidOwner = cache(async () => {
 export async function assertBusinessLimit(ownerId: string) {
   const entitlements = await getOwnerEntitlements(ownerId);
   if (!entitlements.paid) throw new Error("An active plan is required.");
+  // Multi-location create is Growth/Pro only (first location uses onboarding).
+  if (
+    entitlements.usage.businesses >= 1 &&
+    entitlements.plan.key === "starter"
+  ) {
+    throw new Error(
+      "Starter includes 1 location. Upgrade to Growth or Pro to add more stores.",
+    );
+  }
   if (entitlements.usage.businesses >= entitlements.plan.businesses) {
     throw new Error(
       `Your ${entitlements.plan.name} plan supports ${entitlements.plan.businesses} location/store${entitlements.plan.businesses === 1 ? "" : "s"}. Upgrade to Growth or Pro to add more.`,
@@ -381,6 +393,16 @@ export async function assertPrivateFeedbackAccess(ownerId: string) {
   if (!entitlements.paid || !entitlements.privateFeedback) {
     throw new Error(
       "Private feedback is available on Growth and Pro plans. Upgrade to unlock the inbox.",
+    );
+  }
+  return entitlements;
+}
+
+export async function assertGmbSuggestionsAccess(ownerId: string) {
+  const entitlements = await getOwnerEntitlements(ownerId);
+  if (!entitlements.paid || !entitlements.gmbSuggestions) {
+    throw new Error(
+      "GMB profile suggestions are available on Growth and Pro plans. Upgrade to unlock AI profile tips.",
     );
   }
   return entitlements;

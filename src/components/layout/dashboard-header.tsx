@@ -81,7 +81,7 @@ export function DashboardHeader({
         ? `/dashboard/businesses/${activeBusiness.id}/edit`
         : businesses?.[0]
           ? `/dashboard/businesses/${businesses[0].id}/edit`
-          : "/onboarding"
+          : "/dashboard/businesses/new"
       : "/admin/settings";
 
   function changeRange(value: string) {
@@ -135,7 +135,7 @@ export function DashboardHeader({
               onChange={(event) => changeRange(event.target.value)}
               disabled={isPending}
               aria-busy={isPending}
-              className="h-10 max-w-40 appearance-none rounded-xl border border-border bg-card px-3 pr-9 text-sm font-bold shadow-sm transition hover:border-primary/30 disabled:cursor-wait disabled:opacity-70"
+              className="h-10 max-w-40 cursor-pointer appearance-none rounded-xl border border-border bg-card px-3 pr-9 text-sm font-bold shadow-sm transition hover:border-primary/30 disabled:cursor-not-allowed disabled:opacity-70"
             >
               <option value="7">Last 7 days</option>
               <option value="30">Last 30 days</option>

@@ -9,13 +9,13 @@ export function MarketingHeader() {
         <BrandMark />
         <nav className="flex items-center gap-1.5 text-sm font-bold sm:gap-2" aria-label="Marketing">
           <Link
-            className="hidden rounded-xl px-3 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground sm:inline"
+            className="hidden cursor-pointer rounded-xl px-3 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground sm:inline"
             href="/#how-it-works"
           >
             How it works
           </Link>
           <Link
-            className="hidden rounded-xl px-3 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground sm:inline"
+            className="hidden cursor-pointer rounded-xl px-3 py-2 text-muted-foreground transition hover:bg-muted hover:text-foreground sm:inline"
             href="/pricing"
           >
             Pricing

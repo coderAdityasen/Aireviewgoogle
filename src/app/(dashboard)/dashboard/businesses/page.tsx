@@ -3,6 +3,26 @@ import { getOwnerBusinesses } from "@/features/businesses/server/queries";
 import { createClient } from "@/lib/supabase/server";
 import { EmptyState } from "@/components/layout/empty-state";
 import { DeleteStoreButton } from "@/components/dashboard/delete-store-button";
+import { Button } from "@/components/ui/button";
+
+/** Inline icon — lucide-react needs createContext (client-only) in RSC. */
+function PlusIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
 
 export default async function BusinessesPage() {
   const businesses = await getOwnerBusinesses();
@@ -30,6 +50,7 @@ export default async function BusinessesPage() {
       .from("customer_feedback")
       .select("business_id")
       .eq("submitted_privately", false)
+      .eq("continued_to_google", true)
       .in("business_id", businessIds),
   ]);
 
@@ -60,14 +81,12 @@ export default async function BusinessesPage() {
             Manage your active store locations and configurations.
           </p>
         </div>
-        {/* Temporarily hidden: Add new location
         <Button asChild className="rounded-xl">
           <Link href="/dashboard/businesses/new">
-            <span className="text-lg leading-none">+</span>
+            <PlusIcon />
             Add New Store
           </Link>
         </Button>
-        */}
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -80,7 +99,6 @@ export default async function BusinessesPage() {
               key={business.id}
               className="rounded-[1.35rem] border border-slate-100 bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.06)]"
             >
-              {/* Header: name + store icon */}
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h3 className="truncate text-[1.35rem] font-extrabold leading-tight tracking-[-0.04em] text-slate-900">
@@ -108,7 +126,6 @@ export default async function BusinessesPage() {
                 </span>
               </div>
 
-              {/* Metrics: Reviews | Scans */}
               <div className="mt-6 grid grid-cols-2 overflow-hidden rounded-2xl bg-[#f4f7fc]">
                 <div className="px-5 py-4">
                   <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-slate-400">
@@ -128,17 +145,16 @@ export default async function BusinessesPage() {
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="mt-5 flex items-center gap-2.5">
                 <Link
                   href={`/dashboard/businesses/${business.id}/edit`}
-                  className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  className="inline-flex h-10 flex-1 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 >
                   Settings
                 </Link>
                 <Link
                   href={`/dashboard/businesses/${business.id}/qr-campaigns`}
-                  className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-[#9bbcff] bg-white px-3 text-sm font-bold text-[#2463f3] transition hover:bg-[#eff5ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  className="inline-flex h-10 flex-1 cursor-pointer items-center justify-center rounded-xl border border-[#9bbcff] bg-white px-3 text-sm font-bold text-[#2463f3] transition hover:bg-[#eff5ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 >
                   Customize QR
                 </Link>

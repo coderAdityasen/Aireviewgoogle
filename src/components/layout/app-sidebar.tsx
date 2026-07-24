@@ -10,54 +10,55 @@ import {
   CreditCard,
   ExternalLink,
   LayoutDashboard,
+  Lightbulb,
   Menu,
   MessageSquare,
   PanelsTopLeft,
-  // Plus, // temporarily unused with "Set up new location" hidden
+  Plus,
   Store,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import type { DashboardNavCounts } from "@/features/businesses/server/gmb-actions";
+import { cn } from "@/lib/utils";
 
 const ownerWorkspaceNav = [
-  ["Analytics overview", "/dashboard", LayoutDashboard],
-  ["Store management", "/dashboard/stores", Store],
-  ["Reviews feed", "/dashboard/reviews", Activity],
-  ["Private feedback", "/dashboard/feedback", MessageSquare],
-  ["Customize QR", "/dashboard/qr-posters", PanelsTopLeft],
+  ["Analytics overview", "/dashboard", LayoutDashboard, null],
+  ["Store management", "/dashboard/stores", Store, null],
+  ["Reviews feed", "/dashboard/reviews", Activity, "reviews"],
+  ["Private feedback", "/dashboard/feedback", MessageSquare, "privateFeedback"],
+  ["GMB suggestions", "/dashboard/gmb-suggestions", Lightbulb, "gmbSuggestions"],
+  ["Customize QR", "/dashboard/qr-posters", PanelsTopLeft, null],
 ] as const;
 
 const ownerAccountNav = [
-  ["Billing & plans", "/dashboard/billing", CreditCard],
+  ["Billing & plans", "/dashboard/billing", CreditCard, null],
 ] as const;
 
 const adminNav = [
-  ["Overview", "/admin", LayoutDashboard],
-  ["Owners", "/admin/owners", Building2],
-  ["Businesses", "/admin/businesses", Store],
-  ["Analytics", "/admin/analytics", BarChart3],
-  ["Feedback", "/admin/feedback", MessageSquare],
+  ["Overview", "/admin", LayoutDashboard, null],
+  ["Owners", "/admin/owners", Building2, null],
+  ["Businesses", "/admin/businesses", Store, null],
+  ["Analytics", "/admin/analytics", BarChart3, null],
+  ["Feedback", "/admin/feedback", MessageSquare, null],
 ] as const;
+
+type BadgeKey = keyof DashboardNavCounts;
 
 export function AppSidebar({
   mode,
   planKey,
-  privateFeedback = true,
+  navCounts,
 }: {
   mode: "owner" | "admin";
   planKey?: string | null;
-  /** When false (Starter trial), Private feedback is hidden from the nav. */
   privateFeedback?: boolean;
+  navCounts?: DashboardNavCounts;
 }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const workspaceNav =
-    mode === "owner"
-      ? ownerWorkspaceNav.filter(
-          ([label]) => privateFeedback || label !== "Private feedback",
-        )
-      : adminNav;
+  const workspaceNav = mode === "owner" ? ownerWorkspaceNav : adminNav;
   const accountNav = mode === "owner" ? ownerAccountNav : [];
   void planKey;
 
@@ -70,41 +71,50 @@ export function AppSidebar({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open]);
 
+  const badgeFor = (key: BadgeKey | null | undefined) => {
+    if (!key || !navCounts) return null;
+    const value = navCounts[key];
+    return typeof value === "number" ? value : null;
+  };
+
   const renderLinks = (
-    items: readonly (readonly [string, string, LucideIcon])[],
+    items: readonly (readonly [
+      string,
+      string,
+      LucideIcon,
+      BadgeKey | null,
+    ])[],
   ) =>
-    items.map(([label, href, Icon]) => (
+    items.map(([label, href, Icon, badgeKey]) => (
       <NavLink
         key={href}
         label={label}
         href={href}
         pathname={pathname}
         Icon={Icon}
+        badge={badgeFor(badgeKey)}
         onNavigate={() => setOpen(false)}
       />
     ));
 
   const content = (
     <>
-      {/* Temporarily hidden: Set up new location
       {mode === "owner" ? (
         <Link
-          href="/onboarding"
-          className="mx-4 mt-5 flex h-11 items-center justify-center gap-2 rounded-xl bg-[#2463f3] text-sm font-extrabold shadow-[0_8px_20px_rgba(36,99,243,0.22)] transition hover:bg-[#3a73f5] active:scale-[0.98]"
+          href="/dashboard/businesses/new"
+          onClick={() => setOpen(false)}
+          className="mx-4 mt-5 flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#2463f3] text-sm font-extrabold shadow-[0_8px_20px_rgba(36,99,243,0.22)] transition hover:bg-[#3a73f5] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Set up new location
         </Link>
       ) : null}
-      */}
       <nav
         className="scroll-thin flex flex-1 flex-col overflow-y-auto px-3 py-6"
         aria-label="Main navigation"
       >
-        {/* Primary nav — no section label (matches reference) */}
         <div className="space-y-1">{renderLinks(workspaceNav)}</div>
 
-        {/* Billing + Google Maps pinned to bottom */}
         {mode === "owner" ? (
           <div className="mt-auto space-y-1 pt-4">
             {renderLinks(accountNav)}
@@ -112,7 +122,7 @@ export function AppSidebar({
               href="https://www.google.com/maps"
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-white/55 transition hover:bg-white/10 hover:text-white"
+              className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-white/55 transition hover:bg-white/10 hover:text-white"
             >
               <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
               Google Maps Listing
@@ -152,7 +162,7 @@ export function AppSidebar({
         >
           <button
             type="button"
-            className="absolute inset-0 bg-slate-950/60"
+            className="absolute inset-0 cursor-pointer bg-slate-950/60"
             onClick={() => setOpen(false)}
             aria-label="Close navigation"
           />
@@ -183,12 +193,14 @@ function NavLink({
   href,
   pathname,
   Icon,
+  badge,
   onNavigate,
 }: {
   label: string;
   href: string;
   pathname: string;
   Icon: LucideIcon;
+  badge?: number | null;
   onNavigate: () => void;
 }) {
   const active =
@@ -196,15 +208,35 @@ function NavLink({
     (href !== "/dashboard" &&
       href !== "/admin" &&
       pathname.startsWith(`${href}/`));
+  const showBadge = typeof badge === "number" && badge > 0;
+
   return (
     <Link
       href={href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      className={`relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150 ${active ? "bg-[#142653] text-white shadow-inner before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-[#3c7bff]" : "text-white/55 hover:bg-white/10 hover:text-white"}`}
+      className={cn(
+        "relative flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-150",
+        active
+          ? "bg-[#142653] text-white shadow-inner before:absolute before:inset-y-2 before:left-0 before:w-1 before:rounded-r-full before:bg-[#3c7bff]"
+          : "text-white/55 hover:bg-white/10 hover:text-white",
+      )}
     >
       <Icon className="h-[17px] w-[17px] shrink-0" aria-hidden="true" />
-      <span>{label}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {showBadge ? (
+        <span
+          className={cn(
+            "inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-extrabold tabular-nums",
+            active
+              ? "bg-[#3c7bff] text-white"
+              : "bg-white/15 text-white/90",
+          )}
+          aria-label={`${badge} items`}
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -217,9 +249,7 @@ function Brand({
   compact?: boolean;
 }) {
   return (
-    <div
-      className={`flex items-center ${compact ? "" : "h-[76px] px-5"}`}
-    >
+    <div className={`flex items-center ${compact ? "" : "h-[76px] px-5"}`}>
       <Link
         href={mode === "owner" ? "/dashboard" : "/admin"}
         className="flex items-center gap-2.5 text-[1.25rem] font-extrabold tracking-[-0.055em]"

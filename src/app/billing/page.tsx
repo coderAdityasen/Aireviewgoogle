@@ -34,8 +34,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     <main className="min-h-screen bg-[#f4f6fa] px-4 py-5 sm:px-7 sm:py-8">
       <div className="mx-auto max-w-6xl">
         <header className="flex items-center justify-between gap-4 border-b border-border/70 pb-5">
-          <Link href="/" className="flex items-center gap-2 text-xl font-extrabold tracking-[-0.06em]"><span className="grid h-8 w-8 place-items-center rounded-[10px] bg-primary text-sm text-white shadow-[0_6px_16px_rgba(36,99,243,0.25)]">R</span>Review<span className="text-primary">Flow</span></Link>
-          {entitlements.paid ? <Button asChild variant="outline" size="sm"><Link href="/dashboard">Back to workspace</Link></Button> : <Link href="/login?next=/billing" className="text-sm font-extrabold text-muted-foreground hover:text-foreground">Sign in</Link>}
+          <Link href="/" className="flex cursor-pointer items-center gap-2 text-xl font-extrabold tracking-[-0.06em]"><span className="grid h-8 w-8 place-items-center rounded-[10px] bg-primary text-sm text-white shadow-[0_6px_16px_rgba(36,99,243,0.25)]">R</span>Review<span className="text-primary">Flow</span></Link>
+          {entitlements.paid ? <Button asChild variant="outline" size="sm"><Link href="/dashboard">Back to workspace</Link></Button> : <Link href="/login?next=/billing" className="cursor-pointer text-sm font-extrabold text-muted-foreground hover:text-foreground">Sign in</Link>}
         </header>
 
         <div className="mx-auto max-w-3xl py-10 text-center sm:py-14">
@@ -98,7 +98,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button asChild size="sm"><Link href="/onboarding">Continue setup</Link></Button>
+                <Button asChild size="sm"><Link href="/dashboard">Go to dashboard</Link></Button>
                 {subscription ? <CancelSubscriptionButton scheduled={subscription.cancel_at_period_end} /> : null}
               </div>
             </CardContent>

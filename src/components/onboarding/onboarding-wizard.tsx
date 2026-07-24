@@ -330,7 +330,7 @@ export function OnboardingWizard({
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="text-sm font-medium text-primary underline underline-offset-4"
+                  className="cursor-pointer text-sm font-medium text-primary underline underline-offset-4"
                 >
                   Edit details
                 </button>

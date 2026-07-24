@@ -120,7 +120,7 @@ export function BusinessSearch({
               <p className="mt-1 text-sm text-emerald-900/75">{selected.address || "Address not provided by Google"}</p>
               {selected.category ? <p className="mt-1 text-xs capitalize text-emerald-900/65">{selected.category}</p> : null}
             </div>
-            <button type="button" onClick={clear} className="rounded-md p-1 text-emerald-900/70 hover:bg-emerald-100" aria-label="Change business"><X className="h-4 w-4" aria-hidden="true" /></button>
+            <button type="button" onClick={clear} className="cursor-pointer rounded-md p-1 text-emerald-900/70 hover:bg-emerald-100" aria-label="Change business"><X className="h-4 w-4" aria-hidden="true" /></button>
           </div>
         </div>
       ) : (
@@ -151,7 +151,7 @@ export function BusinessSearch({
                   aria-selected={index === activeIndex}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => choose(place)}
-                  className={`flex w-full items-start gap-3 px-4 py-3 text-left text-sm ${index === activeIndex ? "bg-primary/10" : "hover:bg-muted"}`}
+                  className={`flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left text-sm ${index === activeIndex ? "bg-primary/10" : "hover:bg-muted"}`}
                 >
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
                   <span className="min-w-0"><span className="block font-medium">{place.name}</span><span className="mt-0.5 block truncate text-xs text-muted-foreground">{place.address || "Address unavailable"}</span></span>

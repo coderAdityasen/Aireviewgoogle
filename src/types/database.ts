@@ -115,6 +115,8 @@ export interface CustomerFeedback extends DbRecord {
   preferred_language: string;
   review_length: "short" | "standard" | "detailed";
   submitted_privately: boolean;
+  /** True after customer used Copy & continue on Google Maps. */
+  continued_to_google: boolean;
   consent_confirmed: boolean;
   customer_name: string | null;
   customer_email: string | null;
@@ -349,6 +351,42 @@ export type Database = {
         { id: string; owner_id: string; granted_by: string; plan_key: PlanKey; reason: string; expires_at: string | null; created_at: string },
         Partial<{ owner_id: string; granted_by: string; plan_key: PlanKey; reason: string; expires_at: string | null }>,
         Partial<{ plan_key: PlanKey; reason: string; expires_at: string | null }>
+      >;
+      gmb_suggestions: Table<
+        {
+          business_id: string;
+          owner_id: string;
+          suggestions: Json;
+          suggestion_count: number;
+          provider: string;
+          model: string;
+          generated_at: string;
+          updated_at: string;
+          impact_report: Json | null;
+          impact_generated_at: string | null;
+        },
+        {
+          business_id: string;
+          owner_id: string;
+          suggestions?: Json;
+          suggestion_count?: number;
+          provider?: string;
+          model?: string;
+          generated_at?: string;
+          updated_at?: string;
+          impact_report?: Json | null;
+          impact_generated_at?: string | null;
+        },
+        Partial<{
+          suggestions: Json;
+          suggestion_count: number;
+          provider: string;
+          model: string;
+          generated_at: string;
+          updated_at: string;
+          impact_report: Json | null;
+          impact_generated_at: string | null;
+        }>
       >;
       ai_usage_logs: Table<
         {

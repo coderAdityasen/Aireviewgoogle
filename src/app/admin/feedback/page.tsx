@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatReviewDisplayText } from "@/features/ai/server/prompt";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 
 export default async function AdminFeedbackPage() {
@@ -27,7 +28,14 @@ export default async function AdminFeedbackPage() {
             <Td>{row.rating}/5</Td>
             <Td>{row.submitted_privately ? "Yes" : "No"}</Td>
             <Td className="max-w-xs">{row.original_notes}</Td>
-            <Td className="max-w-xs">{row.final_edited_text ?? row.generated_draft}</Td>
+            <Td className="max-w-xs">
+              {formatReviewDisplayText({
+                finalEditedText: row.final_edited_text,
+                generatedDraft: row.generated_draft,
+                originalNotes: row.original_notes,
+                firstOnly: true,
+              })}
+            </Td>
           </Tr>
         ))}
       </tbody>

@@ -33,7 +33,7 @@ export default async function PricingPage() {
           Mode in this project.
         </p>
         <p className="mt-4 text-center text-sm font-medium">
-          <Link href="/signup" className="font-extrabold text-primary hover:underline">
+          <Link href="/signup" className="cursor-pointer font-extrabold text-primary hover:underline">
             Create an account to start your free trial
           </Link>
         </p>

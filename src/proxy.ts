@@ -71,6 +71,31 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Block first-time onboarding once finished (completed progress or any business).
+  if (isOnboardingPath(pathname)) {
+    const [{ data: progress }, { count }] = await Promise.all([
+      supabase
+        .from("onboarding_progress")
+        .select("status")
+        .eq("owner_id", claims.sub)
+        .maybeSingle(),
+      supabase
+        .from("businesses")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", claims.sub),
+    ]);
+
+    const completed =
+      progress?.status === "completed" || (count ?? 0) > 0;
+
+    if (completed) {
+      const dashboardUrl = request.nextUrl.clone();
+      dashboardUrl.pathname = "/dashboard";
+      dashboardUrl.search = "";
+      return NextResponse.redirect(dashboardUrl);
+    }
+  }
+
   return response;
 }
 

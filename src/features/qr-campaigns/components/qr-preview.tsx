@@ -406,7 +406,7 @@ export function QrPreview({
                 <button
                   type="button"
                   onClick={() => cycleTemplate(-1)}
-                  className="grid h-9 w-9 rounded-full bg-primary text-white transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="grid h-9 w-9 cursor-pointer rounded-full bg-primary text-white transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Previous poster template"
                 >
                   <ArrowRight className="m-auto h-4 w-4 rotate-180" />
@@ -414,7 +414,7 @@ export function QrPreview({
                 <button
                   type="button"
                   onClick={() => cycleTemplate(1)}
-                  className="grid h-9 w-9 rounded-full bg-primary text-white transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="grid h-9 w-9 cursor-pointer rounded-full bg-primary text-white transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Next poster template"
                 >
                   <ArrowRight className="m-auto h-4 w-4" />
@@ -463,7 +463,7 @@ export function QrPreview({
                           setQrStyle(item.id);
                           setQrColor(item.color);
                         }}
-                        className="h-9 w-9 rounded-full border-2 border-white shadow-[0_0_0_1px_#cbd5e1] transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        className="h-9 w-9 cursor-pointer rounded-full border-2 border-white shadow-[0_0_0_1px_#cbd5e1] transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         style={{ backgroundColor: item.color }}
                       />
                     ))}
@@ -578,7 +578,7 @@ export function QrPreview({
                   </p>
                   <button
                     type="button"
-                    className="mt-1 flex min-w-0 w-full items-center gap-2 truncate text-left text-xs font-medium text-primary hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="mt-1 flex min-w-0 w-full cursor-pointer items-center gap-2 truncate text-left text-xs font-medium text-primary hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     onClick={() => void copyCampaignUrl()}
                     aria-busy={copying}
                     aria-label="Copy campaign active QR review link"
@@ -774,7 +774,7 @@ function TemplateTile({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`min-w-0 rounded-[14px] border bg-white p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+      className={`min-w-0 cursor-pointer rounded-[14px] border bg-white p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
         selected
           ? "border-2 border-blue-600 bg-blue-50/40 shadow-[0_8px_20px_rgba(36,99,243,0.12)]"
           : "border-slate-200 hover:border-slate-300"
@@ -829,7 +829,7 @@ function QrStyleTile({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`min-w-0 rounded-[14px] border bg-white p-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+      className={`min-w-0 cursor-pointer rounded-[14px] border bg-white p-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
         selected
           ? "border-2 border-blue-600 bg-blue-50/40"
           : "border-slate-200 hover:border-slate-300"

@@ -3,6 +3,7 @@ import { getOwnerBusiness } from "@/features/businesses/server/queries";
 import { createClient } from "@/lib/supabase/server";
 import { assertCsvExportAccess, recordUsage } from "@/lib/billing/entitlements";
 import { getCurrentUser } from "@/lib/auth/roles";
+import { formatReviewDisplayText } from "@/features/ai/server/prompt";
 
 function csvEscape(value: unknown) {
   const text = value === null || value === undefined ? "" : String(value);
@@ -35,7 +36,12 @@ export async function GET(request: NextRequest) {
       "",
       row.rating,
       row.original_notes,
-      row.final_edited_text ?? row.generated_draft
+      formatReviewDisplayText({
+        finalEditedText: row.final_edited_text,
+        generatedDraft: row.generated_draft,
+        originalNotes: row.original_notes,
+        firstOnly: true,
+      })
     ])
   ];
   const csv = rows.map((row) => row.map(csvEscape).join(",")).join("\n");

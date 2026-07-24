@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireAdmin } from "@/lib/auth/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeGoogleReviewUrl } from "@/lib/security/google-url";
+import { optionalHttpUrl } from "@/lib/validation/business";
 import { REVIEW_PROMPT_SETTING_KEY, assertAdminPromptIsSafe } from "@/features/ai/server/prompt";
 import { hasRatingTagFields, ratingTagsFromFields } from "@/lib/feedback/rating-tags";
 
@@ -65,7 +66,7 @@ export async function updateBusinessAdminAction(formData: FormData) {
       category: z.string().min(2).max(80),
       googleReviewUrl: z.string().transform((value) => normalizeGoogleReviewUrl(value)),
       phone: z.string().max(40).optional().default(""),
-      website: z.string().url().optional().or(z.literal("")).default(""),
+      website: optionalHttpUrl("website URL"),
       experienceTags: z.string().max(1000).optional().default(""),
       ratingTags1: z.string().max(1000).optional().default(""),
       ratingTags2: z.string().max(1000).optional().default(""),

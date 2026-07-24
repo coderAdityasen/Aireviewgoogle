@@ -65,7 +65,7 @@ export function ProfileMenu({
         onClick={() => setOpen((current) => !current)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2 rounded-full border border-transparent p-1 pr-2.5 transition hover:border-border hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex cursor-pointer items-center gap-2 rounded-full border border-transparent p-1 pr-2.5 transition hover:border-border hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[#4d3df2] to-[#2463f3] text-xs font-extrabold text-white shadow-sm">
           {initials}
@@ -94,7 +94,7 @@ export function ProfileMenu({
             role="menuitem"
             href={settingsHref}
             onClick={() => setOpen(false)}
-            className="mt-2 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="mt-2 flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Settings className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             My profile
@@ -103,7 +103,7 @@ export function ProfileMenu({
             role="menuitem"
             href={mode === "owner" ? "/dashboard/billing" : "/admin/settings"}
             onClick={() => setOpen(false)}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <CreditCard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             {mode === "owner" ? "Billing & plans" : "Admin settings"}
@@ -113,7 +113,7 @@ export function ProfileMenu({
             type="button"
             disabled={signingOut}
             onClick={() => void signOut()}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-destructive transition hover:bg-red-50 disabled:cursor-wait disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-destructive transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {signingOut ? (
               <LoadingSpinner label="Signing out" className="text-destructive" />

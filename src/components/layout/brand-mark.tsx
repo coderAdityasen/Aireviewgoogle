@@ -19,7 +19,7 @@ export function BrandMark({
     <Link
       href={href}
       className={cn(
-        "inline-flex items-center gap-2 font-extrabold tracking-[-0.06em]",
+        "inline-flex cursor-pointer items-center gap-2 font-extrabold tracking-[-0.06em]",
         compact ? "text-lg" : "text-xl",
         light ? "text-white" : "text-foreground",
         className,

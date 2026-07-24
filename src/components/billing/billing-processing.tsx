@@ -16,7 +16,11 @@ export function BillingProcessing() {
         const response = await fetch("/api/billing/status", { cache: "no-store" });
         const status = await response.json().catch(() => ({}));
         if (stopped) return;
-        if (status.paid) { router.replace("/onboarding"); return; }
+        // After plan checkout from Billing, land on the workspace — not onboarding.
+        if (status.paid) {
+          router.replace("/dashboard");
+          return;
+        }
         if (attempts >= 8) { setMessage("The payment is still being confirmed. You can revisit Billing shortly."); return; }
         timer = window.setTimeout(() => void poll(), 2500);
       } catch {

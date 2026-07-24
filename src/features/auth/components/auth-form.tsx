@@ -80,7 +80,7 @@ export function AuthForm({
             <button
               type="button"
               onClick={() => setShowPassword((visible) => !visible)}
-              className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute inset-y-0 right-0 flex w-11 cursor-pointer items-center justify-center rounded-r-xl text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? (

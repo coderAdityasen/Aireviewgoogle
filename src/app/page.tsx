@@ -329,13 +329,13 @@ export default function HomePage() {
             <p>© 2026 ReviewFlow</p>
           </div>
           <div className="flex flex-wrap gap-5">
-            <Link className="transition hover:text-foreground" href="/privacy">
+            <Link className="cursor-pointer transition hover:text-foreground" href="/privacy">
               Privacy
             </Link>
-            <Link className="transition hover:text-foreground" href="/terms">
+            <Link className="cursor-pointer transition hover:text-foreground" href="/terms">
               Terms
             </Link>
-            <Link className="transition hover:text-foreground" href="/acceptable-use">
+            <Link className="cursor-pointer transition hover:text-foreground" href="/acceptable-use">
               Acceptable use
             </Link>
           </div>

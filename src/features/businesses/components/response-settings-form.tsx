@@ -5,7 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import type { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch, type UseFormRegisterReturn } from "react-hook-form";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { Check, ChevronDown, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateBusinessResponseSettingsAction } from "@/features/businesses/server/actions";
 import { reviewResponseSettingsSchema } from "@/lib/validation/review-settings";
 import type { ReviewResponseSettings } from "@/lib/validation/review-settings";
+import { cn } from "@/lib/utils";
 
 const languageOptions = [
   ["en", "English"],
@@ -33,8 +34,19 @@ const tagFields = [
 ] as const;
 
 const SUGGESTED: Record<string, string[]> = {
-  ratingTags5: ["Helpful staff", "Clean place", "Great service", "Fair prices", "Friendly team"],
-  ratingTags4: ["Helpful staff", "Good service", "Clear communication", "Fair prices"],
+  ratingTags5: [
+    "Helpful staff",
+    "Clean place",
+    "Great service",
+    "Fair prices",
+    "Friendly team",
+  ],
+  ratingTags4: [
+    "Helpful staff",
+    "Good service",
+    "Clear communication",
+    "Fair prices",
+  ],
   ratingTags3: ["What stood out", "Could be better", "Average wait"],
   ratingTags2: ["Communication", "Value for money", "Wait time"],
   ratingTags1: ["Needs improvement", "Follow-up", "Value for money"],
@@ -60,7 +72,9 @@ export function ResponseSettingsForm({
 }) {
   const [pending, startTransition] = useTransition();
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [star, setStar] = useState<(typeof tagFields)[number]["name"]>("ratingTags5");
+  const [star, setStar] = useState<(typeof tagFields)[number]["name"]>(
+    "ratingTags5",
+  );
   const [tagInput, setTagInput] = useState("");
   const [blockInput, setBlockInput] = useState("");
 
@@ -70,7 +84,8 @@ export function ResponseSettingsForm({
   });
 
   const watched = useWatch({ control: form.control });
-  const allowedLanguages = useWatch({ control: form.control, name: "allowedLanguages" }) ?? [];
+  const allowedLanguages =
+    useWatch({ control: form.control, name: "allowedLanguages" }) ?? [];
   const tagFieldValue = useWatch({ control: form.control, name: star }) ?? "";
   const tags = useMemo(() => parseList(String(tagFieldValue)), [tagFieldValue]);
   const blocked = useMemo(
@@ -109,17 +124,25 @@ export function ResponseSettingsForm({
     if (current.includes(code) && current.length === 1) return;
     form.setValue(
       "allowedLanguages",
-      current.includes(code) ? current.filter((c) => c !== code) : [...current, code],
+      current.includes(code)
+        ? current.filter((c) => c !== code)
+        : [...current, code],
       { shouldDirty: true },
     );
   }
 
   const suggestions = SUGGESTED[star] ?? [];
+  const defaultLangLabel =
+    languageOptions.find(([c]) => c === (watched.defaultLanguage ?? "en"))?.[1] ??
+    "English";
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-3xl space-y-8">
-      {/* 1. Style — only essentials */}
-      <Section title="Review style" hint="How AI drafts sound by default.">
+    <form onSubmit={submit} className="space-y-5">
+      {/* Review style */}
+      <SettingsCard
+        title="Review style"
+        description="How AI drafts sound by default for this location."
+      >
         <div className="grid gap-4 sm:grid-cols-3">
           <SimpleSelect label="Tone" {...form.register("tone")}>
             <option value="friendly">Friendly</option>
@@ -137,14 +160,18 @@ export function ResponseSettingsForm({
             <option value="third_person">They visited…</option>
           </SimpleSelect>
         </div>
-      </Section>
+      </SettingsCard>
 
-      {/* 2. Tags — primary owner task */}
-      <Section
+      {/* Customer tags */}
+      <SettingsCard
         title="Customer tags"
-        hint="Chips customers can tap after they rate. Keep them short and clear."
+        description="Chips customers can tap after they rate. Keep them short and clear."
       >
-        <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
+        <div
+          className="flex gap-1 overflow-x-auto rounded-xl border border-border/70 bg-muted/40 p-1"
+          role="tablist"
+          aria-label="Rating for tags"
+        >
           {tagFields.map((field) => {
             const count = parseList(String(form.watch(field.name) ?? "")).length;
             const active = star === field.name;
@@ -152,19 +179,29 @@ export function ResponseSettingsForm({
               <button
                 key={field.name}
                 type="button"
+                role="tab"
+                aria-selected={active}
                 onClick={() => {
                   setStar(field.name);
                   setTagInput("");
                 }}
-                className={`flex-1 rounded-lg px-2 py-2.5 text-center text-xs font-bold transition sm:text-sm ${
+                className={cn(
+                  "min-h-10 min-w-[4.25rem] flex-1 cursor-pointer rounded-lg px-2.5 py-2 text-center text-xs font-bold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-sm",
                   active
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
+                    ? "bg-white text-foreground shadow-sm ring-1 ring-border/60"
+                    : "text-muted-foreground hover:bg-white/70 hover:text-foreground",
+                )}
               >
-                {field.label}
+                <span className="whitespace-nowrap">{field.label}</span>
                 {count > 0 ? (
-                  <span className="ml-1 text-[10px] font-semibold text-slate-400">
+                  <span
+                    className={cn(
+                      "ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-extrabold",
+                      active
+                        ? "bg-primary/10 text-primary"
+                        : "bg-slate-200/80 text-slate-500",
+                    )}
+                  >
                     {count}
                   </span>
                 ) : null}
@@ -173,7 +210,7 @@ export function ResponseSettingsForm({
           })}
         </div>
 
-        <div className="flex gap-2">
+        <div className="mt-5 flex flex-col gap-2 sm:flex-row">
           <Input
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
@@ -185,74 +222,101 @@ export function ResponseSettingsForm({
             }}
             placeholder="Type a tag and press Add"
             maxLength={60}
-            className="h-11 rounded-xl border-slate-200"
+            aria-label="New customer tag"
+            className="h-11"
           />
           <Button
             type="button"
+            variant="outline"
             onClick={() => addTag(tagInput)}
             disabled={!tagInput.trim()}
-            className="h-11 shrink-0 rounded-xl px-5"
+            className="h-11 shrink-0 sm:px-5"
           >
-            <Plus className="mr-1 h-4 w-4" />
+            <Plus className="h-4 w-4" />
             Add
           </Button>
         </div>
 
-        {tags.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-sm font-medium text-white"
-              >
-                {tag}
-                <button
-                  type="button"
-                  onClick={() => setTags(tags.filter((t) => t !== tag))}
-                  className="rounded-full p-0.5 opacity-70 hover:bg-white/15 hover:opacity-100"
-                  aria-label={`Remove ${tag}`}
+        <div className="mt-4">
+          {tags.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-secondary px-3.5 py-1.5 text-sm font-semibold text-secondary-foreground shadow-sm transition"
                 >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-slate-400">No tags for this rating yet.</p>
-        )}
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => setTags(tags.filter((t) => t !== tag))}
+                    className="ml-0.5 grid h-5 w-5 cursor-pointer place-items-center rounded-full text-white/70 transition hover:bg-white/15 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+                    aria-label={`Remove ${tag}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-border/80 bg-muted/20 px-4 py-5 text-center">
+              <p className="text-sm font-medium text-muted-foreground">
+                No tags for this rating yet. Add one or pick a suggestion below.
+              </p>
+            </div>
+          )}
+        </div>
 
-        <div className="flex flex-wrap gap-2">
-          {suggestions.map((tag) => {
-            const on = tags.some((t) => t.toLowerCase() === tag.toLowerCase());
-            return (
-              <button
-                key={tag}
-                type="button"
-                onClick={() =>
-                  on
-                    ? setTags(tags.filter((t) => t.toLowerCase() !== tag.toLowerCase()))
-                    : setTags([...tags, tag])
-                }
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  on
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-dashed border-slate-300 bg-white text-slate-500 hover:border-slate-400 hover:text-slate-800"
-                }`}
-              >
-                {on ? "✓ " : "+ "}
-                {tag}
-              </button>
-            );
-          })}
+        <div className="mt-5">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted-foreground">
+            Suggestions
+          </p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {suggestions.map((tag) => {
+              const on = tags.some(
+                (t) => t.toLowerCase() === tag.toLowerCase(),
+              );
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() =>
+                    on
+                      ? setTags(
+                          tags.filter(
+                            (t) => t.toLowerCase() !== tag.toLowerCase(),
+                          ),
+                        )
+                      : setTags([...tags, tag])
+                  }
+                  className={cn(
+                    "inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                    on
+                      ? "border-primary/30 bg-primary/10 text-primary shadow-sm"
+                      : "border-dashed border-border bg-white text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground",
+                  )}
+                >
+                  {on ? (
+                    <Check className="h-3 w-3" aria-hidden="true" />
+                  ) : (
+                    <Plus className="h-3 w-3" aria-hidden="true" />
+                  )}
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {tagFields.map((f) => (
           <input key={f.name} type="hidden" {...form.register(f.name)} />
         ))}
-      </Section>
+      </SettingsCard>
 
-      {/* 3. Language — compact */}
-      <Section title="Language" hint="Default language for AI drafts.">
+      {/* Language */}
+      <SettingsCard
+        title="Language"
+        description="Languages customers can use for AI-generated drafts."
+      >
         <div className="flex flex-wrap gap-2">
           {languageOptions.map(([code, label]) => {
             const selected = allowedLanguages.includes(code);
@@ -261,29 +325,31 @@ export function ResponseSettingsForm({
                 key={code}
                 type="button"
                 onClick={() => toggleLanguage(code)}
-                className={`rounded-full px-3.5 py-2 text-sm font-semibold transition ${
+                aria-pressed={selected}
+                className={cn(
+                  "inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                   selected
-                    ? "bg-slate-900 text-white"
-                    : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                }`}
+                    ? "border-primary/25 bg-primary text-primary-foreground shadow-[0_4px_12px_rgba(36,99,243,0.25)]"
+                    : "border-border/80 bg-white text-muted-foreground hover:border-primary/30 hover:bg-primary/5 hover:text-foreground",
+                )}
               >
+                {selected ? (
+                  <Check className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                ) : null}
                 {label}
               </button>
             );
           })}
         </div>
         <input type="hidden" {...form.register("defaultLanguage")} />
-        {/* Keep first selected as default language for simplicity */}
-        <p className="text-xs text-slate-400">
-          Tap to allow languages. Default:{" "}
-          <span className="font-semibold text-slate-600">
-            {languageOptions.find(([c]) => c === (watched.defaultLanguage ?? "en"))?.[1] ??
-              "English"}
-          </span>
-          {" · "}
+        <div className="mt-4 flex flex-col gap-1 rounded-xl border border-border/60 bg-muted/25 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs font-medium text-muted-foreground">
+            Default language:{" "}
+            <span className="font-bold text-foreground">{defaultLangLabel}</span>
+          </p>
           <button
             type="button"
-            className="font-semibold text-primary underline-offset-2 hover:underline"
+            className="cursor-pointer text-left text-xs font-bold text-primary underline-offset-2 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             onClick={() => {
               const first = allowedLanguages[0] ?? "en";
               form.setValue("defaultLanguage", first, { shouldDirty: true });
@@ -291,70 +357,93 @@ export function ResponseSettingsForm({
           >
             Use first selected as default
           </button>
-        </p>
-      </Section>
+        </div>
+      </SettingsCard>
 
-      {/* Advanced — collapsed by default */}
-      <div className="border-t border-slate-100 pt-2">
+      {/* Advanced accordion */}
+      <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.04)]">
         <button
           type="button"
           onClick={() => setShowAdvanced((v) => !v)}
-          className="flex w-full items-center justify-between rounded-xl px-1 py-3 text-left text-sm font-bold text-slate-700 hover:text-slate-900"
+          aria-expanded={showAdvanced}
+          className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:px-6"
         >
-          <span>Advanced options</span>
-          <ChevronDown
-            className={`h-4 w-4 text-slate-400 transition ${showAdvanced ? "rotate-180" : ""}`}
-          />
+          <div>
+            <p className="text-base font-extrabold tracking-[-0.03em] text-foreground">
+              Advanced options
+            </p>
+            <p className="mt-0.5 text-sm font-medium text-muted-foreground">
+              Guidance, filters, and fine-tuning for AI drafts
+            </p>
+          </div>
+          <span
+            className={cn(
+              "grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-border/70 bg-muted/40 text-muted-foreground transition-transform duration-200",
+              showAdvanced && "rotate-180 bg-primary/10 text-primary",
+            )}
+          >
+            <ChevronDown className="h-4 w-4" aria-hidden="true" />
+          </span>
         </button>
 
         {showAdvanced ? (
-          <div className="mt-2 space-y-8 border-t border-slate-100 pt-6">
-            <Section title="Guidance by rating" hint="Optional notes for the AI per star level.">
-              {(
-                [
-                  ["ratingRule5", "5 stars"],
-                  ["ratingRule4", "4 stars"],
-                  ["ratingRule3", "3 stars"],
-                  ["ratingRule12", "1–2 stars"],
-                ] as const
-              ).map(([name, label]) => (
-                <div key={name}>
-                  <Label className="text-xs font-semibold text-slate-500">{label}</Label>
-                  <Input
-                    {...form.register(name)}
-                    className="mt-1.5 h-10 rounded-xl border-slate-200"
-                  />
-                </div>
-              ))}
-            </Section>
+          <div className="space-y-6 border-t border-border/60 px-5 py-6 sm:px-6">
+            <SubSection
+              title="Guidance by rating"
+              hint="Optional notes for the AI per star level."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(
+                  [
+                    ["ratingRule5", "5 stars"],
+                    ["ratingRule4", "4 stars"],
+                    ["ratingRule3", "3 stars"],
+                    ["ratingRule12", "1–2 stars"],
+                  ] as const
+                ).map(([name, label]) => (
+                  <div key={name}>
+                    <Label className="text-[12px] font-semibold text-muted-foreground">
+                      {label}
+                    </Label>
+                    <Input
+                      {...form.register(name)}
+                      className="mt-1.5 h-10"
+                    />
+                  </div>
+                ))}
+              </div>
+            </SubSection>
 
-            <Section title="Extra AI instructions" hint="Optional. Leave blank if unsure.">
+            <SubSection
+              title="Extra AI instructions"
+              hint="Optional. Leave blank if unsure."
+            >
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label className="text-xs font-semibold text-slate-500">
+                  <Label className="text-[12px] font-semibold text-muted-foreground">
                     Positive reviews
                   </Label>
                   <Textarea
                     {...form.register("positiveInstructions")}
-                    className="mt-1.5 min-h-24 rounded-xl border-slate-200"
+                    className="mt-1.5 min-h-24"
                     placeholder="Optional"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-slate-500">
+                  <Label className="text-[12px] font-semibold text-muted-foreground">
                     Lower ratings
                   </Label>
                   <Textarea
                     {...form.register("negativeInstructions")}
-                    className="mt-1.5 min-h-24 rounded-xl border-slate-200"
+                    className="mt-1.5 min-h-24"
                     placeholder="Optional"
                   />
                 </div>
               </div>
-            </Section>
+            </SubSection>
 
-            <Section title="Quick toggles">
-              <div className="divide-y divide-slate-100 rounded-xl border border-slate-150">
+            <SubSection title="Quick toggles">
+              <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/70 bg-white">
                 {(
                   [
                     ["mentionSelectedTags", "Use selected tags in draft"],
@@ -372,14 +461,16 @@ export function ResponseSettingsForm({
                     key={name}
                     label={label}
                     checked={Boolean(watched[name])}
-                    onChange={(v) => form.setValue(name, v, { shouldDirty: true })}
+                    onChange={(v) =>
+                      form.setValue(name, v, { shouldDirty: true })
+                    }
                   />
                 ))}
               </div>
-            </Section>
+            </SubSection>
 
-            <Section title="Blocked words" hint="Words AI should avoid.">
-              <div className="flex gap-2">
+            <SubSection title="Blocked words" hint="Words AI should avoid.">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Input
                   value={blockInput}
                   onChange={(e) => setBlockInput(e.target.value)}
@@ -388,21 +479,20 @@ export function ResponseSettingsForm({
                       e.preventDefault();
                       const w = blockInput.trim();
                       if (!w) return;
-                      form.setValue(
-                        "blockedWords",
-                        [...blocked, w].join(", "),
-                        { shouldDirty: true },
-                      );
+                      form.setValue("blockedWords", [...blocked, w].join(", "), {
+                        shouldDirty: true,
+                      });
                       setBlockInput("");
                     }
                   }}
                   placeholder="Add a word"
-                  className="h-10 rounded-xl"
+                  className="h-10"
+                  aria-label="Blocked word"
                 />
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-10 rounded-xl"
+                  className="h-10 shrink-0"
                   onClick={() => {
                     const w = blockInput.trim();
                     if (!w) return;
@@ -416,15 +506,17 @@ export function ResponseSettingsForm({
                 </Button>
               </div>
               {blocked.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {blocked.map((w) => (
                     <span
                       key={w}
-                      className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600"
+                      className="inline-flex min-h-8 items-center gap-1 rounded-full border border-border/70 bg-muted/40 px-2.5 py-1 text-xs font-semibold text-foreground/80"
                     >
                       {w}
                       <button
                         type="button"
+                        className="grid h-4 w-4 cursor-pointer place-items-center rounded-full text-muted-foreground transition hover:bg-slate-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        aria-label={`Remove blocked word ${w}`}
                         onClick={() =>
                           form.setValue(
                             "blockedWords",
@@ -440,9 +532,9 @@ export function ResponseSettingsForm({
                 </div>
               ) : null}
               <input type="hidden" {...form.register("blockedWords")} />
-            </Section>
+            </SubSection>
 
-            <Section title="Fine-tuning">
+            <SubSection title="Fine-tuning">
               <div className="grid gap-6 sm:grid-cols-2">
                 <Range
                   label="Creativity"
@@ -467,44 +559,77 @@ export function ResponseSettingsForm({
                   />
                 </div>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label className="text-xs font-semibold text-slate-500">
+                  <Label className="text-[12px] font-semibold text-muted-foreground">
                     Private follow-up message
                   </Label>
                   <Textarea
                     {...form.register("lowRatingSupportMessage")}
-                    className="mt-1.5 min-h-20 rounded-xl"
+                    className="mt-1.5 min-h-20"
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold text-slate-500">
+                  <Label className="text-[12px] font-semibold text-muted-foreground">
                     Contact fields
                   </Label>
                   <Input
                     {...form.register("contactFields")}
-                    className="mt-1.5 h-10 rounded-xl"
+                    className="mt-1.5 h-10"
                     placeholder="name,email"
                   />
                 </div>
               </div>
-            </Section>
+            </SubSection>
           </div>
         ) : null}
       </div>
 
-      {/* Save */}
-      <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-6">
-        <p className="text-xs text-slate-400">Only this location is updated.</p>
-        <Button type="submit" loading={pending} loadingLabel="Saving…" className="rounded-xl px-6">
-          Save
+      {/* Save bar */}
+      <div className="sticky bottom-4 z-10 flex flex-col-reverse gap-3 rounded-2xl border border-border/80 bg-white/95 p-4 shadow-[0_8px_30px_rgba(15,23,42,0.08)] backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs font-medium text-muted-foreground">
+          Only this location is updated.
+        </p>
+        <Button
+          type="submit"
+          loading={pending}
+          loadingLabel="Saving…"
+          className="w-full sm:w-auto sm:min-w-[9rem]"
+        >
+          Save changes
         </Button>
       </div>
     </form>
   );
 }
 
-function Section({
+function SettingsCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_20px_rgba(15,23,42,0.04)]">
+      <header className="border-b border-border/60 bg-muted/20 px-5 py-4 sm:px-6">
+        <h2 className="text-base font-extrabold tracking-[-0.03em] text-foreground">
+          {title}
+        </h2>
+        {description ? (
+          <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
+            {description}
+          </p>
+        ) : null}
+      </header>
+      <div className="px-5 py-5 sm:px-6 sm:py-6">{children}</div>
+    </section>
+  );
+}
+
+function SubSection({
   title,
   hint,
   children,
@@ -514,15 +639,17 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-4">
+    <div className="space-y-3">
       <div>
-        <h3 className="text-base font-extrabold tracking-[-0.03em] text-slate-900">
+        <h3 className="text-sm font-extrabold tracking-[-0.02em] text-foreground">
           {title}
         </h3>
-        {hint ? <p className="mt-0.5 text-sm text-slate-500">{hint}</p> : null}
+        {hint ? (
+          <p className="mt-0.5 text-xs font-medium text-muted-foreground">{hint}</p>
+        ) : null}
       </div>
-      <div className="space-y-3">{children}</div>
-    </section>
+      {children}
+    </div>
   );
 }
 
@@ -533,10 +660,10 @@ function SimpleSelect({
 }: { label: string; children: ReactNode } & React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <div>
-      <Label className="text-xs font-semibold text-slate-500">{label}</Label>
+      <Label className="text-[13px] font-semibold text-foreground/85">{label}</Label>
       <select
         {...props}
-        className="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none focus:border-slate-400"
+        className="mt-2 h-11 w-full cursor-pointer rounded-xl border border-input bg-card px-3 text-sm font-semibold text-foreground shadow-sm outline-none transition hover:border-primary/30 focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/12"
       >
         {children}
       </select>
@@ -554,21 +681,23 @@ function Toggle({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex cursor-pointer items-center justify-between gap-4 px-4 py-3">
-      <span className="text-sm font-medium text-slate-700">{label}</span>
+    <label className="flex min-h-12 cursor-pointer items-center justify-between gap-4 px-4 py-3 transition hover:bg-muted/30">
+      <span className="text-sm font-medium text-foreground/90">{label}</span>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 shrink-0 rounded-full transition ${
-          checked ? "bg-slate-900" : "bg-slate-200"
-        }`}
+        className={cn(
+          "relative h-6 w-11 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+          checked ? "bg-primary" : "bg-slate-200",
+        )}
       >
         <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-            checked ? "left-[1.35rem]" : "left-0.5"
-          }`}
+          className={cn(
+            "absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-all duration-200",
+            checked ? "left-[1.35rem]" : "left-0.5",
+          )}
         />
       </button>
     </label>
@@ -592,9 +721,9 @@ function Range({
 }) {
   return (
     <div>
-      <div className="flex justify-between text-sm">
-        <span className="font-semibold text-slate-700">{label}</span>
-        <span className="font-bold text-slate-900">
+      <div className="flex items-center justify-between gap-3 text-sm">
+        <span className="font-semibold text-foreground/90">{label}</span>
+        <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-extrabold tabular-nums text-foreground">
           {value}
           {showPercent ? "%" : ""}
         </span>
@@ -605,7 +734,7 @@ function Range({
         min={min}
         max={max}
         step={5}
-        className="mt-2 w-full accent-slate-900"
+        className="mt-2.5 w-full cursor-pointer accent-primary"
       />
     </div>
   );

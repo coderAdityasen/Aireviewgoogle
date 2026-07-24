@@ -4,6 +4,7 @@ declare module "lucide-react" {
   export type LucideIcon = ComponentType<SVGProps<SVGSVGElement>>;
   export const Activity: LucideIcon;
   export const ArrowRight: LucideIcon;
+  export const ArrowUpRight: LucideIcon;
   export const BarChart3: LucideIcon;
   export const Building2: LucideIcon;
   export const Check: LucideIcon;
@@ -19,6 +20,8 @@ declare module "lucide-react" {
   export const LogOut: LucideIcon;
   export const LoaderCircle: LucideIcon;
   export const LayoutDashboard: LucideIcon;
+  export const Lightbulb: LucideIcon;
+  export const Lock: LucideIcon;
   export const MapPin: LucideIcon;
   export const Menu: LucideIcon;
   export const Mic: LucideIcon;
@@ -35,6 +38,8 @@ declare module "lucide-react" {
   export const Star: LucideIcon;
   export const Sparkles: LucideIcon;
   export const Store: LucideIcon;
+  export const TrendingUp: LucideIcon;
   export const Upload: LucideIcon;
+  export const UserRound: LucideIcon;
   export const X: LucideIcon;
 }

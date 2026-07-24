@@ -76,7 +76,7 @@ export function PosterBuilderClient({
             <select
               value={selected.campaign.id}
               onChange={(event) => setSelectedId(event.target.value)}
-              className="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 pr-10 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
+              className="h-11 w-full cursor-pointer appearance-none rounded-xl border border-slate-200 bg-white px-4 pr-10 text-sm font-bold text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
               aria-label="Select campaign"
             >
               {campaigns.map((item) => (

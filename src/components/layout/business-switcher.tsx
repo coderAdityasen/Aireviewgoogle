@@ -24,7 +24,7 @@ export function BusinessSwitcher({ businesses }: { businesses: Array<Pick<Busine
 }
 
 function LocationLink({ href, label, active, isActive }: { href: string; label: string; active: boolean; isActive?: boolean }) {
-  return <Link href={href} aria-current={active ? "page" : undefined} className={`flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-primary/10 font-medium text-primary" : ""}`}>
+  return <Link href={href} aria-current={active ? "page" : undefined} className={`flex cursor-pointer items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${active ? "bg-primary/10 font-medium text-primary" : ""}`}>
     <span className="truncate">{label}</span>
     {active ? <Check className="h-4 w-4 shrink-0" aria-hidden="true" /> : <span className={`ml-2 h-2 w-2 shrink-0 rounded-full ${isActive ? "bg-emerald-500" : "bg-slate-300"}`} aria-label={isActive === false ? "Inactive" : undefined} />}
   </Link>;

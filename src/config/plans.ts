@@ -37,6 +37,8 @@ export type PlanConfig = {
   privateFeedback: boolean;
   /** Max reviews shown in Reviews feed. null = unlimited. */
   reviewsLimit: number | null;
+  /** AI Google Business Profile (GMB) improvement suggestions. Growth/Pro only. */
+  gmbSuggestions: boolean;
   /** Marketing / UI feature list with included or excluded. */
   features: PlanFeature[];
 };
@@ -60,6 +62,7 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
     trialDays: 7,
     privateFeedback: false,
     reviewsLimit: 10,
+    gmbSuggestions: false,
     features: [
       { label: "1 location", included: true },
       { label: "1 store", included: true },
@@ -68,6 +71,7 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
       { label: "3 regenerations", included: true },
       { label: "7 days free", included: true },
       { label: "10 recent reviews", included: true },
+      { label: "GMB profile suggestions", included: false },
       { label: "Future updates", included: false },
       { label: "Private reviews", included: false },
     ],
@@ -87,6 +91,7 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
     trialDays: null,
     privateFeedback: true,
     reviewsLimit: null,
+    gmbSuggestions: true,
     features: [
       { label: "3 locations / stores", included: true },
       { label: "Unlimited QR scans", included: true },
@@ -94,6 +99,7 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
       { label: "Unlimited regenerations", included: true },
       { label: "Unlimited reviews feed", included: true },
       { label: "Private reviews", included: true },
+      { label: "GMB profile suggestions", included: true },
       { label: "Future updates", included: true },
       { label: "CSV export", included: true },
     ],
@@ -113,6 +119,7 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
     trialDays: null,
     privateFeedback: true,
     reviewsLimit: null,
+    gmbSuggestions: true,
     features: [
       { label: "10 locations / stores", included: true },
       { label: "Unlimited QR scans", included: true },
@@ -120,6 +127,7 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
       { label: "Unlimited regenerations", included: true },
       { label: "Unlimited reviews feed", included: true },
       { label: "Private reviews", included: true },
+      { label: "GMB profile suggestions", included: true },
       { label: "Future updates", included: true },
       { label: "Priority features", included: true },
     ],

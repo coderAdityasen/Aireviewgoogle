@@ -2,6 +2,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import type { Business } from "@/types/database";
 import type { PlanKey } from "@/config/plans";
+import type { DashboardNavCounts } from "@/features/businesses/server/gmb-actions";
 
 export function AppShell({
   children,
@@ -11,6 +12,7 @@ export function AppShell({
   account,
   planKey,
   privateFeedback = true,
+  navCounts,
 }: {
   children: React.ReactNode;
   mode: "owner" | "admin";
@@ -19,6 +21,7 @@ export function AppShell({
   account?: { name?: string | null; email?: string | null };
   planKey?: PlanKey | null;
   privateFeedback?: boolean;
+  navCounts?: DashboardNavCounts;
 }) {
   return (
     <div className="min-h-screen overflow-x-clip">
@@ -26,6 +29,7 @@ export function AppShell({
         mode={mode}
         planKey={planKey}
         privateFeedback={privateFeedback}
+        navCounts={navCounts}
       />
       <div className="min-w-0 lg:pl-[252px]">
         <main className="mx-auto min-w-0 max-w-[1500px] px-4 pb-12 pt-0 sm:px-7 lg:px-10">

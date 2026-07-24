@@ -85,8 +85,12 @@ export function parseStoredReviewOptions(value: string | null | undefined) {
   try {
     const parsed = JSON.parse(value) as unknown;
     if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string");
-    if (parsed && typeof parsed === "object" && Array.isArray((parsed as { reviews?: unknown }).reviews)) {
-      return (parsed as { reviews: unknown[] }).reviews.filter((item): item is string => typeof item === "string");
+    if (parsed && typeof parsed === "object") {
+      const record = parsed as { reviews?: unknown; drafts?: unknown; options?: unknown };
+      const list = record.reviews ?? record.drafts ?? record.options;
+      if (Array.isArray(list)) {
+        return list.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+      }
     }
   } catch {
     // Older rows may contain a single draft or separator-joined drafts.
@@ -96,4 +100,65 @@ export function parseStoredReviewOptions(value: string | null | undefined) {
     .split(/\n\s*---\s*\n/)
     .map((draft) => draft.trim())
     .filter(Boolean);
+}
+
+/**
+ * Human-readable review body for dashboards.
+ * Handles JSON payloads like {"reviews":["…","…"]} stored in generated_draft.
+ */
+export function formatReviewDisplayText(input: {
+  finalEditedText?: string | null;
+  generatedDraft?: string | null;
+  originalNotes?: string | null;
+  /** When true and multiple options exist, only the first option is shown. */
+  firstOnly?: boolean;
+}) {
+  const candidates = [
+    input.finalEditedText,
+    input.generatedDraft,
+    input.originalNotes,
+  ];
+
+  for (const candidate of candidates) {
+    const raw = candidate?.trim();
+    if (!raw) continue;
+
+    const options = parseStoredReviewOptions(raw);
+    if (options.length) {
+      return (input.firstOnly ? options.slice(0, 1) : options)
+        .map((option) => option.trim())
+        .filter(Boolean)
+        .join("\n\n");
+    }
+
+    // Plain prose (not JSON options)
+    if (!looksLikeReviewJson(raw)) {
+      return raw
+        .replace(/^\s*\d+\.\s*/gm, "")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
+    }
+  }
+
+  return "No review text captured.";
+}
+
+function looksLikeReviewJson(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return false;
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (Array.isArray(parsed)) return true;
+    if (parsed && typeof parsed === "object") {
+      const record = parsed as { reviews?: unknown; drafts?: unknown; options?: unknown };
+      return (
+        Array.isArray(record.reviews) ||
+        Array.isArray(record.drafts) ||
+        Array.isArray(record.options)
+      );
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }

@@ -364,7 +364,7 @@ export function PublicFeedbackForm({
                 onFocus={() => setHoveredRating(value)}
                 onBlur={() => setHoveredRating(null)}
                 onClick={() => chooseRating(value)}
-                className="rounded-full p-1 transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f5b400] focus-visible:ring-offset-2"
+                className="cursor-pointer rounded-full p-1 transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#f5b400] focus-visible:ring-offset-2"
                 style={{ color: highlighted ? "#f5b400" : "#cbd5e1" }}
               >
                 <Star
@@ -395,7 +395,7 @@ export function PublicFeedbackForm({
                   type="button"
                   onClick={() => toggleTag(tag)}
                   aria-pressed={selectedTags.includes(tag)}
-                  className={`rounded-full border px-3.5 py-2 text-xs font-extrabold transition ${selectedTags.includes(tag) ? "border-[#f5b400] bg-[#fff6d9] text-[#8a6500]" : "border-[#dce5f0] bg-[#f5f8fc] text-[#51627b] hover:border-[#b9c9dd]"}`}
+                  className={`cursor-pointer rounded-full border px-3.5 py-2 text-xs font-extrabold transition ${selectedTags.includes(tag) ? "border-[#f5b400] bg-[#fff6d9] text-[#8a6500]" : "border-[#dce5f0] bg-[#f5f8fc] text-[#51627b] hover:border-[#b9c9dd]"}`}
                 >
                   {tag}
                   <span className="ml-1.5 text-[#9aaac0]">
@@ -416,7 +416,7 @@ export function PublicFeedbackForm({
                 }}
                 placeholder="Add your own tag"
                 maxLength={120}
-                className="h-11 min-w-0 flex-1 rounded-xl border border-[#dbe4ef] bg-white px-3 text-sm font-medium text-[#20304c] outline-none placeholder:text-[#a2afc1] focus:border-[#9bbcff] focus:ring-2 focus:ring-[#dce8ff]"
+                className="h-11 min-w-0 flex-1 cursor-text rounded-xl border border-[#dbe4ef] bg-white px-3 text-sm font-medium text-[#20304c] outline-none placeholder:text-[#a2afc1] focus:border-[#9bbcff] focus:ring-2 focus:ring-[#dce8ff]"
               />
               <Button
                 type="button"
@@ -438,7 +438,7 @@ export function PublicFeedbackForm({
                   Customer voice
                 </span>
               </div>
-              <label className="mt-4 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#71819a]">
+              <label className="mt-4 block cursor-pointer text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#71819a]">
                 Tone
                 <select
                   value={tone}
@@ -446,7 +446,7 @@ export function PublicFeedbackForm({
                     setTone(event.target.value as Tone);
                     resetDraft();
                   }}
-                  className="mt-2 h-11 w-full rounded-xl border border-[#dbe4ef] bg-white px-3 text-sm font-bold normal-case tracking-normal text-[#20304c]"
+                  className="mt-2 h-11 w-full cursor-pointer rounded-xl border border-[#dbe4ef] bg-white px-3 text-sm font-bold normal-case tracking-normal text-[#20304c]"
                 >
                   <option value="friendly">Friendly</option>
                   <option value="professional">Professional</option>
@@ -487,7 +487,7 @@ export function PublicFeedbackForm({
                           submittingPrivate ||
                           !canRequestReview
                         }
-                        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#b7d0ff] bg-[#eff5ff] px-3 py-1.5 text-xs font-bold text-[#2463f3] transition hover:bg-[#e0ecff] disabled:cursor-wait disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2463f3]/40"
+                        className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[#b7d0ff] bg-[#eff5ff] px-3 py-1.5 text-xs font-bold text-[#2463f3] transition hover:bg-[#e0ecff] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2463f3]/40"
                         aria-label="Regenerate review draft"
                       >
                         <RefreshCw
@@ -560,7 +560,7 @@ export function PublicFeedbackForm({
                     }
                     void copyAndContinueToGoogle();
                   }}
-                  className="mt-5 h-12 w-full rounded-2xl text-sm font-semibold hover:cursor-pointer"
+                  className="mt-5 h-12 w-full rounded-2xl text-sm font-semibold"
                 >
                   <span className="inline-flex items-center justify-center gap-2">
                     {!generated ? (

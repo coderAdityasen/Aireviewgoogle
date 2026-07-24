@@ -9,6 +9,28 @@ import { businessSchema } from "@/lib/validation/business";
 
 const progressSchema = z.object({ currentStep: z.number().int().min(1).max(6), completedSteps: z.array(z.number().int().min(1).max(6)), draftData: z.record(z.string(), z.unknown()) });
 
+/**
+ * First-time onboarding is one-shot. After status is "completed" (or the owner
+ * already has a business), /onboarding must stay inaccessible.
+ */
+export async function hasCompletedOnboarding(ownerId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const [{ data: progress }, { count, error: countError }] = await Promise.all([
+    admin
+      .from("onboarding_progress")
+      .select("status")
+      .eq("owner_id", ownerId)
+      .maybeSingle(),
+    admin
+      .from("businesses")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", ownerId),
+  ]);
+  if (countError) throw countError;
+  if (progress?.status === "completed") return true;
+  return (count ?? 0) > 0;
+}
+
 export async function getOnboardingProgress(ownerId: string) {
   const { user } = await requirePaidOwner();
   if (user.id !== ownerId) throw new Error("You do not have access to this onboarding session.");
@@ -20,6 +42,9 @@ export async function getOnboardingProgress(ownerId: string) {
 
 export async function saveOnboardingProgressAction(input: unknown) {
   const { user } = await requirePaidOwner();
+  if (await hasCompletedOnboarding(user.id)) {
+    throw new Error("Onboarding is already complete. Manage locations from your dashboard.");
+  }
   const parsed = progressSchema.parse(input);
   const supabase = await createClient();
   const { error } = await supabase.from("onboarding_progress").upsert({ owner_id: user.id, current_step: parsed.currentStep, completed_steps: parsed.completedSteps, status: "in_progress", draft_data: parsed.draftData as never }, { onConflict: "owner_id" });
@@ -27,22 +52,135 @@ export async function saveOnboardingProgressAction(input: unknown) {
   return { ok: true };
 }
 
+function firstValidationMessage(error: z.ZodError) {
+  const issue = error.issues[0];
+  if (!issue) return "Check your business details and try again.";
+  const field = issue.path.length ? String(issue.path[issue.path.length - 1]) : "";
+  const label =
+    field === "googleReviewUrl"
+      ? "Google review link"
+      : field === "website"
+        ? "Website"
+        : field === "logoUrl"
+          ? "Logo URL"
+          : field === "googleMapsUrl"
+            ? "Google Maps URL"
+            : field === "name"
+              ? "Business name"
+              : field === "category"
+                ? "Category"
+                : field;
+  return label ? `${label}: ${issue.message}` : issue.message;
+}
+
 export async function completeOnboardingAction(input: unknown) {
   const { user } = await requirePaidOwner();
+  if (await hasCompletedOnboarding(user.id)) {
+    throw new Error("Onboarding is already complete. Manage locations from your dashboard.");
+  }
   await assertBusinessLimit(user.id);
   await assertQrCampaignLimit(user.id);
-  const parsed = businessSchema.parse(input);
+
+  const parsedResult = businessSchema.safeParse(input);
+  if (!parsedResult.success) {
+    throw new Error(firstValidationMessage(parsedResult.error));
+  }
+  const parsed = parsedResult.data;
+
   const admin = createAdminClient();
   const slug = await uniqueBusinessSlug(parsed.name);
-  const { data: business, error } = await admin.from("businesses").insert({ owner_id: user.id, name: parsed.name, slug, category: parsed.category, description: parsed.description, services: parsed.services.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), phone: parsed.phone || null, email: parsed.email || null, website: parsed.website || null, address_line: parsed.addressLine || null, city: parsed.city || null, state: parsed.state || null, country: parsed.country || null, logo_url: parsed.logoUrl || null, brand_color: parsed.brandColor, google_review_url: parsed.googleReviewUrl, google_place_id: parsed.googlePlaceId || null, google_maps_url: parsed.googleMapsUrl || null, latitude: parsed.latitude ?? null, longitude: parsed.longitude ?? null, default_language: parsed.defaultLanguage, experience_tags: parsed.experienceTags.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), low_rating_support_message: parsed.lowRatingSupportMessage || null, contact_fields: parsed.contactFields.split(/[\n,]/).map((item) => item.trim()).filter(Boolean), poster_headline: parsed.posterHeadline || null, poster_template: parsed.posterTemplate, is_active: true }).select("id").single();
-  if (error) throw error;
-  const { data: campaign, error: campaignError } = await admin.from("qr_campaigns").insert({ business_id: business.id, name: parsed.campaignName?.trim() || (parsed.name ? `${parsed.name} QR` : "Customer QR"), is_active: true }).select("id, public_token").single();
-  if (campaignError) throw campaignError;
-  const { error: progressError } = await admin.from("onboarding_progress").upsert({ owner_id: user.id, current_step: 3, completed_steps: [1, 2, 3], status: "completed", draft_data: parsed as never, completed_at: new Date().toISOString() }, { onConflict: "owner_id" });
-  if (progressError) throw progressError;
-  await admin.from("audit_logs").insert({ actor_id: user.id, action: "onboarding.completed", entity_type: "business", entity_id: business.id, metadata: { name: parsed.name } });
+  const { data: business, error } = await admin
+    .from("businesses")
+    .insert({
+      owner_id: user.id,
+      name: parsed.name,
+      slug,
+      category: parsed.category,
+      description: parsed.description,
+      services: parsed.services
+        .split(/[\n,]/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+      phone: parsed.phone || null,
+      email: parsed.email || null,
+      website: parsed.website || null,
+      address_line: parsed.addressLine || null,
+      city: parsed.city || null,
+      state: parsed.state || null,
+      country: parsed.country || null,
+      logo_url: parsed.logoUrl || null,
+      brand_color: parsed.brandColor,
+      google_review_url: parsed.googleReviewUrl,
+      google_place_id: parsed.googlePlaceId || null,
+      google_maps_url: parsed.googleMapsUrl || null,
+      latitude: parsed.latitude ?? null,
+      longitude: parsed.longitude ?? null,
+      default_language: parsed.defaultLanguage,
+      experience_tags: parsed.experienceTags
+        .split(/[\n,]/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+      low_rating_support_message: parsed.lowRatingSupportMessage || null,
+      contact_fields: parsed.contactFields
+        .split(/[\n,]/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+      poster_headline: parsed.posterHeadline || null,
+      poster_template: parsed.posterTemplate,
+      is_active: true,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    throw new Error(error.message || "Unable to create the business.");
+  }
+
+  const { data: campaign, error: campaignError } = await admin
+    .from("qr_campaigns")
+    .insert({
+      business_id: business.id,
+      name:
+        parsed.campaignName?.trim() ||
+        (parsed.name ? `${parsed.name} QR` : "Customer QR"),
+      is_active: true,
+    })
+    .select("id, public_token")
+    .single();
+
+  if (campaignError) {
+    throw new Error(campaignError.message || "Unable to create the QR campaign.");
+  }
+
+  const { error: progressError } = await admin.from("onboarding_progress").upsert(
+    {
+      owner_id: user.id,
+      current_step: 3,
+      completed_steps: [1, 2, 3],
+      status: "completed",
+      draft_data: parsed as never,
+      completed_at: new Date().toISOString(),
+    },
+    { onConflict: "owner_id" },
+  );
+  if (progressError) {
+    throw new Error(progressError.message || "Unable to mark onboarding complete.");
+  }
+
+  await admin.from("audit_logs").insert({
+    actor_id: user.id,
+    action: "onboarding.completed",
+    entity_type: "business",
+    entity_id: business.id,
+    metadata: { name: parsed.name },
+  });
+
   revalidatePath("/dashboard");
-  return { businessId: business.id, slug, campaignToken: campaign.public_token };
+  return {
+    businessId: business.id,
+    slug,
+    campaignToken: campaign.public_token,
+  };
 }
 
 async function uniqueBusinessSlug(name: string) {

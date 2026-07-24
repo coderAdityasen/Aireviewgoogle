@@ -24,7 +24,10 @@ export function LoadingButton({
   return (
     <button
       {...props}
-      className={cn("min-w-[9rem]", className)}
+      className={cn(
+        "min-w-[9rem] cursor-pointer disabled:cursor-not-allowed",
+        className,
+      )}
       disabled={loading || props.disabled}
       aria-busy={loading || undefined}
     >
@@ -85,7 +88,7 @@ export function InlineError({ message, onRetry }: { message: string; onRetry?: (
     <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">
       <p>{message}</p>
       {onRetry ? (
-        <button type="button" onClick={onRetry} className="mt-3 font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700">
+        <button type="button" onClick={onRetry} className="mt-3 cursor-pointer font-medium underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700">
           Try again
         </button>
       ) : null}

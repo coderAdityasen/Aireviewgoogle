@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requirePaidOwner } from "@/lib/billing/entitlements";
 import { getOwnerBusinesses } from "@/features/businesses/server/queries";
+import { formatReviewDisplayText } from "@/features/ai/server/prompt";
 import { formatLimit } from "@/config/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -26,18 +27,13 @@ function businessName(row: ReviewRow) {
 }
 
 function reviewText(row: ReviewRow) {
-  const text = (
-    row.final_edited_text ??
-    row.generated_draft ??
-    row.original_notes ??
-    ""
-  ).trim();
-  if (!text) return "No review text captured.";
-  // AI drafts may be stored as numbered options — show a single clean block.
-  return text
-    .replace(/^\s*\d+\.\s*/gm, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  // Feed only includes Google-continue rows — prefer the copied final text.
+  return formatReviewDisplayText({
+    finalEditedText: row.final_edited_text,
+    generatedDraft: row.generated_draft,
+    originalNotes: row.original_notes,
+    firstOnly: true,
+  });
 }
 
 function stars(rating: number) {
@@ -53,7 +49,7 @@ export default async function ReviewActivityPage() {
       <EmptyState
         title="No locations yet"
         description="Connect a location first. Reviews from your QR flow will appear here."
-        action={{ href: "/onboarding", label: "Set up a location" }}
+        action={{ href: "/dashboard/businesses/new", label: "Set up a location" }}
       />
     );
   }
@@ -66,24 +62,27 @@ export default async function ReviewActivityPage() {
   const supabase = await createClient();
   const businessIds = businesses.map((business) => business.id);
 
-  // Prefer filtering by owned business IDs (same pattern as private feedback).
-  // Filtering via businesses.owner_id on a join is less reliable in PostgREST.
+  // Only drafts the customer copied and continued with to Google Maps.
   const [{ data, error }, { count: totalCount, error: countError }] =
     await Promise.all([
       supabase
         .from("customer_feedback")
         .select(
-          "id, rating, original_notes, generated_draft, final_edited_text, submitted_privately, created_at, businesses(name)",
+          "id, rating, original_notes, generated_draft, final_edited_text, submitted_privately, continued_to_google, created_at, businesses(name)",
         )
         .in("business_id", businessIds)
         .eq("submitted_privately", false)
+        .eq("continued_to_google", true)
+        .not("final_edited_text", "is", null)
         .order("created_at", { ascending: false })
         .limit(limit),
       supabase
         .from("customer_feedback")
         .select("id", { count: "exact", head: true })
         .in("business_id", businessIds)
-        .eq("submitted_privately", false),
+        .eq("submitted_privately", false)
+        .eq("continued_to_google", true)
+        .not("final_edited_text", "is", null),
     ]);
 
   if (error || countError) {
@@ -116,7 +115,8 @@ export default async function ReviewActivityPage() {
           <div>
             <CardTitle>Recent reviews</CardTitle>
             <p className="mt-1 text-sm font-medium text-muted-foreground">
-              Customer review drafts from your QR flow (not private messages).
+              Reviews customers copied and continued with to Google Maps (not
+              private messages, not unused drafts).
               {isCapped
                 ? ` Starter shows the latest ${entitlements.reviewsLimit}.`
                 : " Unlimited on your plan."}
@@ -169,8 +169,8 @@ export default async function ReviewActivityPage() {
           ))
         ) : (
           <EmptyState
-            title="No reviews yet"
-            description="When customers generate a review draft on your public QR page (and do not submit it as private feedback), it will show up here."
+            title="No Google reviews yet"
+            description="When a customer taps “Copy & continue on Google Maps”, that review is saved here for your feed."
           />
         )}
 
