@@ -32,15 +32,37 @@ export type GmbProfileInput = {
   googleReviewUrl?: string | null;
 };
 
+export type GmbImpactReport = {
+  summary: string;
+  timeframe: string;
+  metrics: Array<{
+    label: string;
+    before: string;
+    after: string;
+    change: string;
+  }>;
+  growthHighlights: string[];
+  specialistFocus: string[];
+};
+
+export type GmbFullAnalysis = {
+  suggestions: GmbSuggestion[];
+  impact: GmbImpactReport;
+  provider: string;
+  model: string;
+};
+
+/** Single AI pass: profile suggestions + growth impact together. */
 const SYSTEM_PROMPT = `You are a Google Business Profile (GMB) optimization expert for local businesses.
-Given a business profile snapshot from ReviewFlow, return practical, specific profile improvement suggestions.
+Given a business profile snapshot from ReviewFlow, return BOTH improvement suggestions AND projected growth impact in one response.
 
 Rules:
 - Focus on Google Business Profile / Maps listing quality, not generic marketing fluff.
 - Be concrete and actionable for a small local team.
-- Do not invent claims about the business that are not supported by the input (e.g. do not invent awards or hours).
+- Do not invent claims about the business that are not supported by the input.
 - Prefer 5–7 high-value suggestions ordered by impact.
-- Return JSON only with this shape:
+- Growth metrics must be optimistic but realistic projected ranges (not fake historical facts).
+- Return JSON only with this exact shape:
 {
   "suggestions": [
     {
@@ -50,22 +72,32 @@ Rules:
       "detail": "why this matters",
       "action": "what to do next in Google Business Profile"
     }
-  ]
-}`;
+  ],
+  "growth": {
+    "summary": "2-3 sentence overview of expected lift if suggestions are implemented",
+    "timeframe": "e.g. 60–90 days",
+    "metrics": [
+      { "label": "Maps discovery", "before": "…", "after": "…", "change": "+15–30%" }
+    ],
+    "growthHighlights": ["bullet", "bullet"],
+    "specialistFocus": ["what a specialist would do first", "…"]
+  }
+}
+Provide 3–5 metrics, 3–5 growthHighlights, and 3–5 specialistFocus items. Every metric.change should include a clear percentage or numeric lift when possible.`;
 
-export async function generateGmbSuggestions(input: GmbProfileInput): Promise<{
-  suggestions: GmbSuggestion[];
-  provider: string;
-  model: string;
-}> {
+export async function generateGmbFullAnalysis(
+  input: GmbProfileInput,
+): Promise<GmbFullAnalysis> {
   const profileText = formatProfile(input);
   const config = getAiProviderConfig();
 
   if (!config.apiKey || !config.model) {
+    const suggestions = fallbackSuggestions(input);
     return {
-      suggestions: fallbackSuggestions(input),
+      suggestions,
+      impact: fallbackImpactReport(suggestions),
       provider: "local-fallback",
-      model: "gmb-heuristics",
+      model: "gmb-full-heuristics",
     };
   }
 
@@ -80,13 +112,13 @@ export async function generateGmbSuggestions(input: GmbProfileInput): Promise<{
       body: JSON.stringify({
         model: config.model,
         temperature: 0.35,
-        max_tokens: 1200,
+        max_tokens: 2000,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {
             role: "user",
-            content: `Analyze this Google Business Profile-related snapshot and suggest improvements:\n\n${profileText}`,
+            content: `Analyze this Google Business Profile snapshot. Return improvement suggestions AND projected growth impact together:\n\n${profileText}`,
           },
         ],
       }),
@@ -102,11 +134,15 @@ export async function generateGmbSuggestions(input: GmbProfileInput): Promise<{
     const content = json.choices?.[0]?.message?.content?.trim();
     if (!content) throw new Error("Empty AI response");
 
-    const parsed = parseSuggestions(content);
-    if (!parsed.length) throw new Error("No suggestions parsed");
+    const suggestions = parseSuggestions(content);
+    if (!suggestions.length) throw new Error("No suggestions parsed");
+
+    const impact =
+      parseImpactFromFull(content) ?? fallbackImpactReport(suggestions);
 
     return {
-      suggestions: parsed,
+      suggestions,
+      impact,
       provider: config.provider,
       model: config.model,
     };
@@ -114,12 +150,28 @@ export async function generateGmbSuggestions(input: GmbProfileInput): Promise<{
     console.error("[gmb-ai] Falling back to heuristics", {
       reason: error instanceof Error ? error.message : "unknown",
     });
+    const suggestions = fallbackSuggestions(input);
     return {
-      suggestions: fallbackSuggestions(input),
+      suggestions,
+      impact: fallbackImpactReport(suggestions),
       provider: "local-fallback",
-      model: "gmb-heuristics",
+      model: "gmb-full-heuristics",
     };
   }
+}
+
+/** @deprecated Prefer generateGmbFullAnalysis — kept for compatibility. */
+export async function generateGmbSuggestions(input: GmbProfileInput): Promise<{
+  suggestions: GmbSuggestion[];
+  provider: string;
+  model: string;
+}> {
+  const full = await generateGmbFullAnalysis(input);
+  return {
+    suggestions: full.suggestions,
+    provider: full.provider,
+    model: full.model,
+  };
 }
 
 function formatProfile(input: GmbProfileInput) {
@@ -333,143 +385,69 @@ function fallbackSuggestions(input: GmbProfileInput): GmbSuggestion[] {
   return suggestions.slice(0, 7);
 }
 
-export type GmbImpactReport = {
-  summary: string;
-  timeframe: string;
-  metrics: Array<{
-    label: string;
-    before: string;
-    after: string;
-    change: string;
-  }>;
-  growthHighlights: string[];
-  specialistFocus: string[];
-};
-
-const IMPACT_SYSTEM_PROMPT = `You are a local SEO analyst. Given a business profile and a list of Google Business Profile improvement suggestions, forecast realistic impact and growth IF those changes are fully implemented by a specialist.
-
-Rules:
-- Be optimistic but realistic for a local small business (no impossible claims).
-- Do not invent historical stats as fact; frame as projected ranges.
-- Return JSON only:
-{
-  "summary": "2-3 sentence overview",
-  "timeframe": "e.g. 60–90 days",
-  "metrics": [
-    { "label": "Maps discovery", "before": "…", "after": "…", "change": "+X–Y%" }
-  ],
-  "growthHighlights": ["bullet", "bullet"],
-  "specialistFocus": ["what a GMB specialist would execute first", "…"]
-}
-Provide 3–5 metrics and 3–5 growthHighlights and 3–5 specialistFocus items.`;
-
-export async function generateGmbImpactReport(input: {
-  profile: GmbProfileInput;
-  suggestions: GmbSuggestion[];
-}): Promise<{ report: GmbImpactReport; provider: string; model: string }> {
-  const config = getAiProviderConfig();
-  const suggestionText = input.suggestions
-    .map(
-      (s, i) =>
-        `${i + 1}. [${s.impact}] ${s.title} — ${s.detail} Next: ${s.action}`,
-    )
-    .join("\n");
-
-  if (!config.apiKey || !config.model) {
-    return {
-      report: fallbackImpactReport(input.suggestions),
-      provider: "local-fallback",
-      model: "gmb-impact-heuristics",
-    };
-  }
-
-  try {
-    const response = await fetch(config.baseUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-        ...config.extraHeaders,
-      },
-      body: JSON.stringify({
-        model: config.model,
-        temperature: 0.4,
-        max_tokens: 1100,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: IMPACT_SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Business:\n${formatProfile(input.profile)}\n\nSuggestions to implement:\n${suggestionText}`,
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) throw new Error(`AI provider returned ${response.status}`);
-    const json = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = json.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new Error("Empty AI response");
-    const report = parseImpactReport(content);
-    if (!report) throw new Error("Could not parse impact report");
-    return { report, provider: config.provider, model: config.model };
-  } catch (error) {
-    console.error("[gmb-ai] impact fallback", {
-      reason: error instanceof Error ? error.message : "unknown",
-    });
-    return {
-      report: fallbackImpactReport(input.suggestions),
-      provider: "local-fallback",
-      model: "gmb-impact-heuristics",
-    };
-  }
-}
-
-function parseImpactReport(content: string): GmbImpactReport | null {
+function parseImpactFromFull(content: string): GmbImpactReport | null {
   const cleaned = content
     .replace(/^```(?:json)?/i, "")
     .replace(/```$/i, "")
     .trim();
   try {
     const parsed = JSON.parse(cleaned) as Record<string, unknown>;
-    const summary = String(parsed.summary ?? "").trim();
-    if (!summary) return null;
-    const metricsRaw = Array.isArray(parsed.metrics) ? parsed.metrics : [];
-    const metrics = metricsRaw
-      .map((item) => {
-        if (!item || typeof item !== "object") return null;
-        const row = item as Record<string, unknown>;
-        const label = String(row.label ?? "").trim();
-        if (!label) return null;
-        return {
-          label,
-          before: String(row.before ?? "—"),
-          after: String(row.after ?? "—"),
-          change: String(row.change ?? "—"),
-        };
-      })
-      .filter((item): item is NonNullable<typeof item> => Boolean(item))
-      .slice(0, 6);
-
-    const growthHighlights = Array.isArray(parsed.growthHighlights)
-      ? parsed.growthHighlights.map((x) => String(x).trim()).filter(Boolean).slice(0, 6)
-      : [];
-    const specialistFocus = Array.isArray(parsed.specialistFocus)
-      ? parsed.specialistFocus.map((x) => String(x).trim()).filter(Boolean).slice(0, 6)
-      : [];
-
-    return {
-      summary,
-      timeframe: String(parsed.timeframe ?? "60–90 days"),
-      metrics,
-      growthHighlights,
-      specialistFocus,
-    };
+    const growth =
+      parsed.growth && typeof parsed.growth === "object"
+        ? (parsed.growth as Record<string, unknown>)
+        : parsed;
+    return parseImpactObject(growth);
   } catch {
     return null;
   }
+}
+
+function parseImpactObject(parsed: Record<string, unknown>): GmbImpactReport | null {
+  const summary = String(parsed.summary ?? "").trim();
+  if (!summary) return null;
+  const metricsRaw = Array.isArray(parsed.metrics) ? parsed.metrics : [];
+  const metrics = metricsRaw
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const row = item as Record<string, unknown>;
+      const label = String(row.label ?? "").trim();
+      if (!label) return null;
+      return {
+        label,
+        before: String(row.before ?? "—"),
+        after: String(row.after ?? "—"),
+        change: String(row.change ?? "—"),
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .slice(0, 6);
+
+  const growthHighlights = Array.isArray(parsed.growthHighlights)
+    ? parsed.growthHighlights.map((x) => String(x).trim()).filter(Boolean).slice(0, 6)
+    : [];
+  const specialistFocus = Array.isArray(parsed.specialistFocus)
+    ? parsed.specialistFocus.map((x) => String(x).trim()).filter(Boolean).slice(0, 6)
+    : [];
+
+  return {
+    summary,
+    timeframe: String(parsed.timeframe ?? "60–90 days"),
+    metrics,
+    growthHighlights,
+    specialistFocus,
+  };
+}
+
+/** @deprecated Impact is included in generateGmbFullAnalysis. */
+export async function generateGmbImpactReport(input: {
+  profile: GmbProfileInput;
+  suggestions: GmbSuggestion[];
+}): Promise<{ report: GmbImpactReport; provider: string; model: string }> {
+  return {
+    report: fallbackImpactReport(input.suggestions),
+    provider: "local-fallback",
+    model: "gmb-impact-heuristics",
+  };
 }
 
 function fallbackImpactReport(suggestions: GmbSuggestion[]): GmbImpactReport {

@@ -47,9 +47,8 @@ export default async function GmbSuggestionsPage({
           GMB profile suggestions
         </h1>
         <p className="max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
-          Start empty, generate once, and keep results saved. Then project
-          impact or hire a specialist to implement the checklist. Growth and Pro
-          only.
+          One analysis produces profile suggestions and growth projections
+          together. Generated once, saved permanently. Growth and Pro only.
         </p>
       </header>
 

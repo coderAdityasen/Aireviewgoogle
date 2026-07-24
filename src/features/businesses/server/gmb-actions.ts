@@ -9,8 +9,7 @@ import {
   requirePaidOwner,
 } from "@/lib/billing/entitlements";
 import {
-  generateGmbImpactReport,
-  generateGmbSuggestions,
+  generateGmbFullAnalysis,
   type GmbImpactReport,
   type GmbSuggestion,
 } from "@/features/ai/server/gmb-suggestions";
@@ -140,7 +139,7 @@ function profileFromBusiness(
   };
 }
 
-/** Load saved suggestions (and optional impact report) for one business. */
+/** Load saved full analysis (suggestions + growth) for one business. */
 export async function getStoredGmbSuggestions(
   businessId: string,
 ): Promise<StoredGmbSuggestions | null> {
@@ -172,8 +171,8 @@ export async function getStoredGmbSuggestions(
 }
 
 /**
- * One-time generate for a business. Fails if already generated.
- * Growth/Pro only.
+ * One-time full analysis: GMB suggestions + growth impact in a single AI run.
+ * Saved together; cannot regenerate.
  */
 export async function generateAndSaveGmbSuggestionsAction(
   input: unknown,
@@ -192,16 +191,16 @@ export async function generateAndSaveGmbSuggestionsAction(
 
   if (existing) {
     throw new Error(
-      "Suggestions are already generated for this location and cannot be regenerated.",
+      "Analysis is already generated for this location and cannot be regenerated.",
     );
   }
 
   const business = await loadOwnedBusiness(businessId, user.id);
-  const result = await generateGmbSuggestions(profileFromBusiness(business));
+  const result = await generateGmbFullAnalysis(profileFromBusiness(business));
   const suggestions = result.suggestions;
   const generatedAt = new Date().toISOString();
 
-  const { error: upsertError } = await admin.from("gmb_suggestions").insert({
+  const { error: insertError } = await admin.from("gmb_suggestions").insert({
     business_id: businessId,
     owner_id: user.id,
     suggestions: suggestions as never,
@@ -209,10 +208,12 @@ export async function generateAndSaveGmbSuggestionsAction(
     provider: result.provider,
     model: result.model,
     generated_at: generatedAt,
+    impact_report: result.impact as never,
+    impact_generated_at: generatedAt,
   });
 
-  if (upsertError) {
-    throw new Error(upsertError.message || "Could not save GMB suggestions.");
+  if (insertError) {
+    throw new Error(insertError.message || "Could not save GMB analysis.");
   }
 
   revalidatePath("/dashboard", "layout");
@@ -225,67 +226,9 @@ export async function generateAndSaveGmbSuggestionsAction(
     provider: result.provider,
     model: result.model,
     generatedAt,
-    impactReport: null,
-    impactGeneratedAt: null,
+    impactReport: result.impact,
+    impactGeneratedAt: generatedAt,
   };
-}
-
-/**
- * One-time AI impact / growth forecast based on saved suggestions.
- * Cannot be re-run once stored.
- */
-export async function generateAndSaveGmbImpactAction(
-  input: unknown,
-): Promise<GmbImpactReport> {
-  const { user } = await requirePaidOwner();
-  await assertGmbSuggestionsAccess(user.id);
-  const { businessId } = businessIdSchema.parse(input);
-
-  const admin = createAdminClient();
-  const { data: row, error } = await admin
-    .from("gmb_suggestions")
-    .select("suggestions, impact_report")
-    .eq("business_id", businessId)
-    .eq("owner_id", user.id)
-    .maybeSingle();
-
-  if (error) throw error;
-  if (!row) {
-    throw new Error("Generate suggestions first, then view projected impact.");
-  }
-
-  const existingImpact = parseImpactReport(row.impact_report);
-  if (existingImpact) {
-    return existingImpact;
-  }
-
-  const suggestions = parseStoredSuggestions(row.suggestions);
-  if (!suggestions.length) {
-    throw new Error("No suggestions available for impact analysis.");
-  }
-
-  const business = await loadOwnedBusiness(businessId, user.id);
-  const { report } = await generateGmbImpactReport({
-    profile: profileFromBusiness(business),
-    suggestions,
-  });
-
-  const impactGeneratedAt = new Date().toISOString();
-  const { error: updateError } = await admin
-    .from("gmb_suggestions")
-    .update({
-      impact_report: report as never,
-      impact_generated_at: impactGeneratedAt,
-    })
-    .eq("business_id", businessId)
-    .eq("owner_id", user.id);
-
-  if (updateError) {
-    throw new Error(updateError.message || "Could not save impact report.");
-  }
-
-  revalidatePath("/dashboard/gmb-suggestions");
-  return report;
 }
 
 /** Total GMB suggestion count across the owner's locations. */

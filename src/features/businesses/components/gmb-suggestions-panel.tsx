@@ -19,10 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  generateAndSaveGmbImpactAction,
-  generateAndSaveGmbSuggestionsAction,
-} from "@/features/businesses/server/gmb-actions";
+import { generateAndSaveGmbSuggestionsAction } from "@/features/businesses/server/gmb-actions";
 import type {
   GmbImpactReport,
   GmbSuggestion,
@@ -46,13 +43,7 @@ const CATEGORY_LABELS: Record<GmbSuggestion["category"], string> = {
   engagement: "Engagement",
 };
 
-type Phase =
-  | "idle"
-  | "researching"
-  | "revealing"
-  | "impact_research"
-  | "done"
-  | "error";
+type Phase = "idle" | "researching" | "revealing" | "done" | "error";
 
 type AgentStatus = "queued" | "working" | "done";
 
@@ -65,48 +56,8 @@ type AgentDef = {
   actions: string[];
 };
 
-function buildAgents(businessName: string, mode: "research" | "impact"): AgentDef[] {
-  if (mode === "impact") {
-    return [
-      {
-        id: "forecaster",
-        name: "Growth Forecaster",
-        role: "Maps & discovery lift",
-        Icon: TrendingUp,
-        color: "emerald",
-        actions: [
-          `Projecting map-pack CTR for ${businessName}`,
-          "Simulating category rank deltas",
-          "Writing growth % cards",
-        ],
-      },
-      {
-        id: "engagement",
-        name: "Engagement Model",
-        role: "Calls · directions · clicks",
-        Icon: Activity,
-        color: "sky",
-        actions: [
-          "Estimating direction-request lift",
-          "Modeling review reply impact",
-          "Compiling engagement ranges",
-        ],
-      },
-      {
-        id: "planner",
-        name: "Specialist Planner",
-        role: "Execution order",
-        Icon: Sparkles,
-        color: "violet",
-        actions: [
-          "Prioritizing high-impact tasks",
-          "Sequencing specialist workstream",
-          "Finalizing action plan",
-        ],
-      },
-    ];
-  }
-
+/** One orchestration mesh: profile tips + growth in the same run. */
+function buildAgents(businessName: string): AgentDef[] {
   return [
     {
       id: "scout",
@@ -169,15 +120,27 @@ function buildAgents(businessName: string, mode: "research" | "impact"): AgentDe
       ],
     },
     {
+      id: "growth",
+      name: "Growth Forecaster",
+      role: "Impact & % lift",
+      Icon: TrendingUp,
+      color: "emerald",
+      actions: [
+        "Projecting Maps discovery lift",
+        "Estimating engagement growth",
+        "Writing growth percentage cards",
+      ],
+    },
+    {
       id: "orchestrator",
       name: "Orchestrator",
-      role: "Merge & recommend",
+      role: "Merge final pack",
       Icon: Sparkles,
       color: "violet",
       actions: [
-        "Fusing agent findings",
+        "Fusing suggestions + growth",
         "Ranking improvement opportunities",
-        "Assembling final recommendation pack",
+        "Assembling final results page",
       ],
     },
   ];
@@ -307,18 +270,11 @@ export function GmbSuggestionsPanel({
   const [orchestrationTick, setOrchestrationTick] = useState(0);
 
   const hasSuggestions = suggestions.length > 0;
-  const isBusy =
-    phase === "researching" ||
-    phase === "revealing" ||
-    phase === "impact_research";
+  const isBusy = phase === "researching" || phase === "revealing";
 
   const activeAgents = useMemo(
-    () =>
-      buildAgents(
-        businessName,
-        phase === "impact_research" ? "impact" : "research",
-      ),
-    [businessName, phase],
+    () => buildAgents(businessName),
+    [businessName],
   );
 
   const specialistHref = useMemo(() => {
@@ -337,14 +293,11 @@ export function GmbSuggestionsPanel({
     return `mailto:${email}?subject=${subject}&body=${body}`;
   }, [businessName, suggestions]);
 
-  // Multi-agent orchestration timeline while researching / modeling.
+  // Multi-agent orchestration timeline while researching.
   useEffect(() => {
-    if (phase !== "researching" && phase !== "impact_research") return;
+    if (phase !== "researching") return;
 
-    const agents = buildAgents(
-      businessName,
-      phase === "impact_research" ? "impact" : "research",
-    );
+    const agents = buildAgents(businessName);
     const initial: Record<string, AgentStatus> = {};
     const actions: Record<string, string> = {};
     for (const agent of agents) {
@@ -433,7 +386,7 @@ export function GmbSuggestionsPanel({
     return () => window.clearInterval(timer);
   }, [phase, businessName]);
 
-  // Stream-reveal suggestion cards.
+  // Stream-reveal suggestion cards, then finish.
   useEffect(() => {
     if (phase !== "revealing" || !suggestions.length) return;
     setVisibleCount(0);
@@ -443,36 +396,11 @@ export function GmbSuggestionsPanel({
       setVisibleCount(n);
       if (n >= suggestions.length) {
         window.clearInterval(timer);
-        void runImpactPipeline();
+        setPhase("done");
       }
     }, 420);
     return () => window.clearInterval(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once when revealing starts
   }, [phase, suggestions.length]);
-
-  async function runImpactPipeline() {
-    if (impactReport) {
-      setPhase("done");
-      return;
-    }
-    setPhase("impact_research");
-    try {
-      const [report] = await Promise.all([
-        generateAndSaveGmbImpactAction({ businessId }),
-        sleep(4200),
-      ]);
-      setImpactReport(report);
-      setPhase("done");
-      toast.success("Growth projections ready.");
-    } catch (error) {
-      setPhase("done");
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Could not generate impact report.",
-      );
-    }
-  }
 
   async function onGenerate() {
     if (isBusy) return;
@@ -481,39 +409,19 @@ export function GmbSuggestionsPanel({
     try {
       const [result] = await Promise.all([
         generateAndSaveGmbSuggestionsAction({ businessId }),
-        sleep(7200), // multi-agent orchestration theater
+        sleep(7800), // multi-agent orchestration (suggestions + growth together)
       ]);
       setSuggestions(result.suggestions);
       setGeneratedAt(result.generatedAt);
+      setImpactReport(result.impactReport);
       setPhase("revealing");
-      toast.success("Agents finished — streaming recommendations.");
+      toast.success("Full analysis ready — suggestions and growth.");
     } catch (error) {
       setPhase("error");
       toast.error(
         error instanceof Error
           ? error.message
-          : "Could not generate suggestions.",
-      );
-    }
-  }
-
-  async function onShowImpact() {
-    if (isBusy || impactReport) return;
-    setPhase("impact_research");
-    try {
-      const [report] = await Promise.all([
-        generateAndSaveGmbImpactAction({ businessId }),
-        sleep(4200),
-      ]);
-      setImpactReport(report);
-      setPhase("done");
-      toast.success("Growth projections ready.");
-    } catch (error) {
-      setPhase("done");
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Could not generate impact report.",
+          : "Could not generate analysis.",
       );
     }
   }
@@ -559,12 +467,12 @@ export function GmbSuggestionsPanel({
               ) : null}
             </div>
             <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
-              Multi-agent mesh scans{" "}
+              One multi-agent run for{" "}
               <span className="font-semibold text-foreground/90">
                 {businessName}
               </span>
-              , orchestrates findings, streams improvements, then projects
-              growth. Generated once — no regenerate.
+              : profile tips and growth projections together. Generated once —
+              no regenerate.
             </p>
           </div>
         </div>
@@ -600,13 +508,13 @@ export function GmbSuggestionsPanel({
               Ready to deploy agents
             </p>
             <p className="mx-auto mt-1.5 max-w-md text-sm font-medium leading-6 text-muted-foreground">
-              Launch a multi-agent scan: scouts search the web, readers audit
-              the listing, analysts process reviews, then the orchestrator
-              streams your final improvement pack.
+              One run produces everything: profile suggestions and growth
+              percentage cards. Agents search, audit, forecast, then stream the
+              full results pack.
             </p>
             <Button type="button" onClick={() => void onGenerate()} className="mt-5">
               <Sparkles className="h-4 w-4" />
-              Run multi-agent analysis
+              Generate full analysis
             </Button>
           </div>
         ) : (
@@ -703,44 +611,26 @@ export function GmbSuggestionsPanel({
               </div>
             ) : null}
 
-            {/* Impact details (cards already on top) */}
-            <div className="rounded-2xl border border-border/70 bg-muted/15 p-5 sm:p-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            {/* Growth narrative (metrics already on top strip) */}
+            {impactReport ? (
+              <div className="rounded-2xl border border-border/70 bg-muted/15 p-5 sm:p-6">
                 <div className="flex gap-3">
                   <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-emerald-700">
                     <TrendingUp className="h-5 w-5" aria-hidden="true" />
                   </span>
                   <div>
                     <p className="text-base font-extrabold tracking-[-0.03em] text-foreground">
-                      Projected impact &amp; growth
+                      Growth outlook
                     </p>
                     <p className="mt-1 text-sm font-medium leading-6 text-muted-foreground">
-                      {impactReport
-                        ? "Growth percentages are pinned at the top of this section."
-                        : "Run once to project Maps discovery, engagement, and specialist priorities."}
+                      Included in the same analysis · percentages pinned above
                     </p>
                   </div>
                 </div>
-                {!impactReport ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => void onShowImpact()}
-                    disabled={isBusy}
-                    className="shrink-0"
-                  >
-                    <TrendingUp className="h-4 w-4" />
-                    Show improvement impact
-                  </Button>
-                ) : null}
-              </div>
-
-              {impactReport ? (
                 <div className="mt-5 space-y-5">
                   <p className="text-sm font-medium leading-6 text-foreground/90">
                     {impactReport.summary}
                   </p>
-
                   {impactReport.growthHighlights.length ? (
                     <div>
                       <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-muted-foreground">
@@ -761,7 +651,6 @@ export function GmbSuggestionsPanel({
                       </ul>
                     </div>
                   ) : null}
-
                   {impactReport.specialistFocus.length ? (
                     <div className="rounded-xl border border-primary/15 bg-primary/[0.04] p-4">
                       <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-primary">
@@ -780,8 +669,8 @@ export function GmbSuggestionsPanel({
                     </div>
                   ) : null}
                 </div>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
           </div>
         )}
       </div>
@@ -848,11 +737,6 @@ function AgentOrchestrationTheater({
   const total = agents.length || 1;
   const progress = Math.min(98, Math.round(((doneCount + workingCount * 0.45) / total) * 100));
   const allDone = doneCount >= total && total > 0;
-  const title =
-    phase === "impact_research"
-      ? "Growth modeling mesh"
-      : "Multi-agent profile orchestration";
-
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#050b18] p-4 text-white shadow-[0_20px_60px_rgba(2,8,23,0.45)] sm:p-6">
       {/* Background mesh */}
@@ -878,15 +762,15 @@ function AgentOrchestrationTheater({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-sky-300/90">
-              {title}
+              Unified multi-agent analysis
             </p>
             <h3 className="mt-1 text-xl font-extrabold tracking-[-0.04em] sm:text-2xl">
               {allDone ? "Assembling final page" : `Working on ${businessName}`}
             </h3>
             <p className="mt-1.5 max-w-xl text-sm font-medium text-white/55">
               {allDone
-                ? "Agents finished their passes. Orchestrator is packaging recommendations for the results page."
-                : "Specialized agents search the web, scrape listing signals, and act in parallel under one orchestrator."}
+                ? "Agents finished. Packaging profile suggestions and growth % cards together."
+                : "One run: scouts, auditors, growth forecaster, and orchestrator build the full pack."}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1065,16 +949,13 @@ function AgentOrchestrationTheater({
               Pipeline stages
             </p>
             <ol className="mt-3 space-y-2">
-              {(phase === "impact_research"
-                ? ["Ingest findings", "Model growth", "Compile % cards", "Final page"]
-                : [
-                    "Discover listing",
-                    "Scrape profile",
-                    "Parallel analysis",
-                    "Orchestrate",
-                    "Final page",
-                  ]
-              ).map((stage, index, arr) => {
+              {[
+                "Discover listing",
+                "Scrape profile",
+                "Parallel analysis",
+                "Forecast growth",
+                "Final page",
+              ].map((stage, index, arr) => {
                 const stageProgress = progress / 100;
                 const threshold = (index + 1) / arr.length;
                 const done = stageProgress >= threshold;
