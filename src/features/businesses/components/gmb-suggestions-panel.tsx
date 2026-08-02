@@ -462,7 +462,7 @@ export function GmbSuggestionsPanel({
               {!unlocked ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.1em] text-amber-800 ring-1 ring-amber-200/80">
                   <Lock className="h-3 w-3" aria-hidden="true" />
-                  Growth &amp; Pro
+                  Growth &amp; Custom
                 </span>
               ) : null}
             </div>
@@ -1065,7 +1065,7 @@ function LockedPreview({ planName }: { planName: string }) {
           <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
             Your plan is{" "}
             <span className="font-bold text-foreground">{planName}</span>.
-            Upgrade to Growth or Pro for live research, streamed suggestions,
+            Upgrade to Growth or Custom for live research, streamed suggestions,
             and growth % cards.
           </p>
           <Button asChild className="mt-5">

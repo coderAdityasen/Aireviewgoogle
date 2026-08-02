@@ -31,7 +31,7 @@ export async function setOwnerStatusAction(formData: FormData) {
 
 export async function grantEntitlementOverrideAction(formData: FormData) {
   const { user } = await requireAdmin();
-  const parsed = z.object({ ownerId: z.string().uuid(), planKey: z.enum(["starter", "growth", "pro"]), reason: z.string().min(3).max(500), expiresAt: z.string().optional() }).parse({ ownerId: formData.get("ownerId"), planKey: formData.get("planKey"), reason: formData.get("reason"), expiresAt: formData.get("expiresAt") || undefined });
+  const parsed = z.object({ ownerId: z.string().uuid(), planKey: z.enum(["starter", "growth", "custom"]), reason: z.string().min(3).max(500), expiresAt: z.string().optional() }).parse({ ownerId: formData.get("ownerId"), planKey: formData.get("planKey"), reason: formData.get("reason"), expiresAt: formData.get("expiresAt") || undefined });
   const admin = createAdminClient();
   const { data, error } = await admin.from("entitlement_overrides").insert({ owner_id: parsed.ownerId, granted_by: user.id, plan_key: parsed.planKey, reason: parsed.reason, expires_at: parsed.expiresAt ? new Date(parsed.expiresAt).toISOString() : null }).select("id").single();
   if (error) throw error;

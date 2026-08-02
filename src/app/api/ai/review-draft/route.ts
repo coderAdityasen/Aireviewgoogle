@@ -81,7 +81,6 @@ export async function POST(request: NextRequest) {
     `Rating-specific guidance: ${ratingRuleFor(responseSettings, parsed.data.rating)}`,
     `Owner writing guidance: ${instructionsForRating(responseSettings, parsed.data.rating)}`,
     `Configured tone: ${responseSettings.tone}`,
-    `Configured perspective: ${responseSettings.writingPerspective}`,
     responseSettings.mentionSelectedTags ? "Use customer-selected tags when they fit the customer's input." : "Do not add or emphasize tags beyond the customer's input.",
     responseSettings.avoidGenericPhrases ? "Avoid generic praise or complaints." : ""
   ].filter(Boolean).join("\n");

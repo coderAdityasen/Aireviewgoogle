@@ -307,7 +307,7 @@ export function QrPreview({
     if (!png) return;
     setExporting(true);
     try {
-      // High-res print export — same template engine as the live mockup
+      // Same compositor as the live preview (WYSIWYG), higher print resolution
       const dataUrl = await composePosterPng({
         displayName: displayName || businessName,
         headline,
@@ -325,8 +325,17 @@ export function QrPreview({
         posterFilename(displayName || businessName, template),
         dataUrl,
       );
-      toast.success("Poster PNG downloaded.");
+      toast.success("Full poster downloaded — matches the preview.");
     } catch (error) {
+      // Fallback: download the on-screen poster image if high-res compose fails
+      if (posterImage) {
+        downloadDataUrl(
+          posterFilename(displayName || businessName, template),
+          posterImage,
+        );
+        toast.success("Poster downloaded from preview.");
+        return;
+      }
       toast.error(
         error instanceof Error
           ? error.message
@@ -628,12 +637,12 @@ export function QrPreview({
                 size="sm"
                 className="h-10 min-w-0 w-full gap-1.5 whitespace-nowrap bg-slate-900 px-2 text-xs text-white hover:bg-slate-800"
                 loading={exporting}
-                loadingLabel="Exporting..."
+                loadingLabel="Downloading…"
                 onClick={() => void exportPoster()}
-                disabled={!png || composing}
+                disabled={!png || (!posterImage && composing)}
               >
                 <Download className="h-4 w-4 shrink-0" />
-                <span className="truncate">Export</span>
+                <span className="truncate">Download</span>
               </Button>
             </div>
           </section>

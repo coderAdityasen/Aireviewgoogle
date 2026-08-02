@@ -19,8 +19,8 @@ export function PlanSelection({
             Start free, upgrade when you grow
           </h2>
           <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
-            Starter is a 7-day free trial. Growth and Pro unlock unlimited AI
-            regenerations, private feedback, and the full reviews feed.
+            Starter is a free 7-day trial. Growth is self-serve monthly billing.
+            Custom is tailored with our sales team for multi-location brands.
           </p>
         </div>
         <span className="text-xs font-bold text-muted-foreground">

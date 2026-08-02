@@ -1,11 +1,21 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { PlanConfig } from "@/config/plans";
+import { CustomPlanContactDialog } from "@/components/billing/custom-plan-contact-dialog";
 
 /** Inline icons — avoid lucide-react in RSC (createContext only works in client components). */
 function CheckIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3 w-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -13,7 +23,16 @@ function CheckIcon() {
 
 function CrossIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3 w-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
@@ -34,6 +53,7 @@ export function PlanCard({
   href?: string;
 }) {
   const isTrial = plan.key === "starter";
+  const isCustom = plan.contactSales || plan.key === "custom";
   const target =
     href ?? (isTrial ? "/signup" : `/billing/checkout?plan=${plan.key}`);
 
@@ -72,25 +92,34 @@ export function PlanCard({
         ) : null}
       </div>
 
-      <p className="mt-6 text-4xl font-extrabold tracking-[-0.07em] text-foreground">
+      {/* Price row — same structure for all plans (Vercel/Stripe style) */}
+      <div className="mt-6">
         {isTrial ? (
-          <>
+          <p className="text-4xl font-extrabold tracking-[-0.07em] text-foreground">
             Free
             <span className="ml-1 text-sm font-bold tracking-normal text-muted-foreground">
               / {plan.trialDays} days
             </span>
-          </>
+          </p>
+        ) : isCustom ? (
+          <p className="text-4xl font-extrabold tracking-[-0.07em] text-foreground">
+            Custom
+          </p>
         ) : (
           <>
-            ₹{plan.priceInr.toLocaleString("en-IN")}
-            <span className="ml-1 text-sm font-bold tracking-normal text-muted-foreground">
-              /month
-            </span>
+            <p className="text-4xl font-extrabold tracking-[-0.07em] text-foreground">
+              ₹{plan.priceInr.toLocaleString("en-IN")}
+              <span className="ml-1 text-sm font-bold tracking-normal text-muted-foreground">
+                /month
+              </span>
+            </p>
+            <p className="mt-1.5 text-xs font-medium text-muted-foreground">
+              ≈ ₹{Math.round(plan.priceInr / 30).toLocaleString("en-IN")}/day
+            </p>
           </>
         )}
-      </p>
+      </div>
 
-      {/* Tick / cross feature list only */}
       <ul className="mt-6 flex-1 space-y-2.5 text-sm font-medium leading-5">
         {plan.features.map((feature) => (
           <li
@@ -114,28 +143,36 @@ export function PlanCard({
                 <CrossIcon />
               </span>
             )}
-            <span className={feature.included ? "" : "line-through decoration-slate-300"}>
+            <span
+              className={
+                feature.included ? "" : "line-through decoration-slate-300"
+              }
+            >
               {feature.label}
             </span>
           </li>
         ))}
       </ul>
 
-      <Button
-        asChild
-        variant={
-          current ? "outline" : highlighted || isTrial ? "default" : "outline"
-        }
-        className="mt-7 w-full"
-      >
-        <Link href={current ? "/dashboard/billing" : target}>
-          {current
-            ? "Manage plan"
-            : isTrial
-              ? "Start free trial"
-              : `Choose ${plan.name}`}
-        </Link>
-      </Button>
+      {current ? (
+        <Button asChild variant="outline" className="mt-7 w-full">
+          <Link href="/dashboard/billing">Manage plan</Link>
+        </Button>
+      ) : isCustom ? (
+        <div className="mt-7">
+          <CustomPlanContactDialog />
+        </div>
+      ) : (
+        <Button
+          asChild
+          variant={highlighted || isTrial ? "default" : "outline"}
+          className="mt-7 w-full"
+        >
+          <Link href={target}>
+            {isTrial ? "Start free trial" : `Choose ${plan.name}`}
+          </Link>
+        </Button>
+      )}
     </article>
   );
 }

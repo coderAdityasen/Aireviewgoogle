@@ -10,7 +10,8 @@ import {
   CreditCard,
   ExternalLink,
   LayoutDashboard,
-  Lightbulb,
+  // Lightbulb, // unused while GMB suggestions nav is commented out
+  Mail,
   Menu,
   MessageSquare,
   PanelsTopLeft,
@@ -28,7 +29,7 @@ const ownerWorkspaceNav = [
   ["Store management", "/dashboard/stores", Store, null],
   ["Reviews feed", "/dashboard/reviews", Activity, "reviews"],
   ["Private feedback", "/dashboard/feedback", MessageSquare, "privateFeedback"],
-  ["GMB suggestions", "/dashboard/gmb-suggestions", Lightbulb, "gmbSuggestions"],
+  // ["GMB suggestions", "/dashboard/gmb-suggestions", Lightbulb, "gmbSuggestions"],
   ["Customize QR", "/dashboard/qr-posters", PanelsTopLeft, null],
 ] as const;
 
@@ -42,6 +43,7 @@ const adminNav = [
   ["Businesses", "/admin/businesses", Store, null],
   ["Analytics", "/admin/analytics", BarChart3, null],
   ["Feedback", "/admin/feedback", MessageSquare, null],
+  ["Custom plan leads", "/admin/custom-plan-inquiries", Mail, null],
 ] as const;
 
 type BadgeKey = keyof DashboardNavCounts;

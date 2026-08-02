@@ -18,7 +18,7 @@ export default async function NewBusinessPage() {
   const atLimit =
     !isUnlimited(plan.businesses) && usage.businesses >= plan.businesses;
   // Starter (and any plan without multi-location room) must upgrade to add more.
-  const multiLocationAllowed = plan.key === "growth" || plan.key === "pro";
+  const multiLocationAllowed = plan.key === "growth" || plan.key === "custom";
   const needsUpgrade = !multiLocationAllowed || atLimit;
 
   if (needsUpgrade) {
@@ -34,7 +34,7 @@ export default async function NewBusinessPage() {
           </h1>
           <p className="max-w-xl text-sm font-medium leading-6 text-muted-foreground">
             Extra stores and multi-location management are available on Growth
-            and Pro.
+            and Custom.
           </p>
         </header>
 
@@ -68,15 +68,15 @@ export default async function NewBusinessPage() {
                   <strong className="text-foreground">
                     {plan.businesses} location
                   </strong>
-                  . Upgrade to Growth (3) or Pro (10) to add more stores.
+                  . Upgrade to Growth (3) or contact us for Custom to add more stores.
                 </>
               ) : (
                 <>
                   Your <strong className="text-foreground">{plan.name}</strong>{" "}
                   plan supports up to{" "}
                   <strong className="text-foreground">{plan.businesses}</strong>{" "}
-                  locations. You are using {usage.businesses}. Upgrade to Pro
-                  for more capacity.
+                  locations. You are using {usage.businesses}. Contact us for a
+                  Custom plan with more capacity.
                 </>
               )}
             </p>

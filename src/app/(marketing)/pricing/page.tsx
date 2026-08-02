@@ -14,12 +14,12 @@ export default async function PricingPage() {
         <div className="mx-auto max-w-2xl text-center sm:text-left">
           <p className="section-eyebrow">Starter free trial · paid upgrades</p>
           <h1 className="mt-3 text-4xl font-extrabold tracking-[-0.06em] sm:text-5xl">
-            Try free for 7 days, then pick Growth or Pro
+            Try free for 7 days, then pick Growth or Custom
           </h1>
           <p className="mt-5 text-base font-medium leading-7 text-muted-foreground">
             Starter includes one location, three AI regenerations total, and the
-            last 10 reviews. Upgrade for unlimited regenerations, private
-            feedback, and the full reviews feed.
+            last 10 reviews. Upgrade to Growth for unlimited regenerations and
+            private feedback, or contact us for a Custom enterprise plan.
           </p>
         </div>
 
@@ -29,8 +29,8 @@ export default async function PricingPage() {
 
         <p className="mt-10 text-center text-sm font-medium text-muted-foreground">
           After the 7-day Starter trial, the dashboard and public QR flows lock
-          until you upgrade. Growth and Pro are billed monthly via Razorpay Test
-          Mode in this project.
+          until you upgrade. Growth is billed monthly via Razorpay. Custom is
+          sales-assisted — submit Contact us and our team will follow up.
         </p>
         <p className="mt-4 text-center text-sm font-medium">
           <Link href="/signup" className="cursor-pointer font-extrabold text-primary hover:underline">

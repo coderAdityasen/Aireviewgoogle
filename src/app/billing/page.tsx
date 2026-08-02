@@ -18,7 +18,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
   const entitlements = await getOwnerEntitlements(user.id);
   const subscription = entitlements.subscription;
   const selectedPlan = getPlan(params.plan);
-  // Active paid sub (Growth/Pro) OR trial starter for display
+  // Active paid sub (Growth/Custom) OR trial starter for display
   const activePlan = entitlements.paid
     ? entitlements.plan
     : null;
@@ -51,10 +51,10 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-sm font-medium leading-6 text-muted-foreground">
             {params.trial === "expired"
-              ? "Upgrade to Growth or Pro to reopen your dashboard, QR flows, and AI features."
+              ? "Upgrade to Growth (or contact us for Custom) to reopen your dashboard, QR flows, and AI features."
               : params.required
-                ? "Starter is a free 7-day trial. After that, upgrade to Growth or Pro to keep access."
-                : "Starter is free for 7 days. Growth and Pro unlock unlimited AI regenerations, private feedback, and more reviews."}
+                ? "Starter is a free 7-day trial. After that, upgrade to Growth or contact us for Custom to keep access."
+                : "Starter is free for 7 days. Growth unlocks unlimited AI regenerations and private feedback. Need enterprise scale? Choose Custom and contact us."}
           </p>
         </div>
 
@@ -66,14 +66,19 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                 {params.trial === "expired" ? "Trial expired — upgrade required" : "Access requires an active plan"}
               </p>
               <p className="mt-1 leading-5 text-amber-950/75">
-                Dashboard, QR publishing, AI generation and public review pages stay locked until you upgrade to Growth or Pro.
+                Dashboard, QR publishing, AI generation and public review pages stay locked until you upgrade to Growth or get a Custom plan.
               </p>
             </div>
           </div>
         ) : null}
-        {selectedPlan && selectedPlan.key !== "starter" ? (
+        {selectedPlan && selectedPlan.key !== "starter" && !selectedPlan.contactSales ? (
           <div className="mx-auto mb-7 max-w-3xl rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-left text-sm font-bold text-primary">
             {selectedPlan.name} is selected. Continue below to start checkout.
+          </div>
+        ) : null}
+        {selectedPlan?.contactSales ? (
+          <div className="mx-auto mb-7 max-w-3xl rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3 text-left text-sm font-bold text-primary">
+            Custom plan selected — use Contact us on the card below and our team will follow up.
           </div>
         ) : null}
 

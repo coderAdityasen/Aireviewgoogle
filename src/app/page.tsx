@@ -252,25 +252,34 @@ export default function HomePage() {
                       </span>
                     ) : null}
                   </div>
-                  <p className="pt-2 text-3xl font-extrabold tracking-[-0.05em]">
-                    {plan.key === "starter" ? (
-                      <>
-                        Free
-                        <span className="text-sm font-semibold text-muted-foreground"> / 7 days</span>
-                      </>
-                    ) : (
-                      <>
-                        ₹{plan.priceInr.toLocaleString("en-IN")}
-                        <span className="text-sm font-semibold text-muted-foreground">/month</span>
-                      </>
-                    )}
-                  </p>
+                  <div className="pt-2">
+                    <p className="text-3xl font-extrabold tracking-[-0.05em]">
+                      {plan.key === "starter" ? (
+                        <>
+                          Free
+                          <span className="text-sm font-semibold text-muted-foreground"> / 7 days</span>
+                        </>
+                      ) : plan.contactSales ? (
+                        "Custom"
+                      ) : (
+                        <>
+                          ₹{plan.priceInr.toLocaleString("en-IN")}
+                          <span className="text-sm font-semibold text-muted-foreground">/month</span>
+                        </>
+                      )}
+                    </p>
+                    {plan.key !== "starter" && !plan.contactSales ? (
+                      <p className="mt-1.5 text-xs font-medium text-muted-foreground">
+                        ≈ ₹{Math.round(plan.priceInr / 30).toLocaleString("en-IN")}/day
+                      </p>
+                    ) : null}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm font-medium text-muted-foreground">
-                    {plan.businesses} location{plan.businesses === 1 ? "" : "s"} ·{" "}
-                    {plan.qrCampaigns} QR ·{" "}
-                    {plan.aiGenerations < 0 ? "Unlimited" : plan.aiGenerations} AI regenerations
+                    {plan.contactSales
+                      ? plan.tagline
+                      : `${plan.businesses} location${plan.businesses === 1 ? "" : "s"} · ${plan.qrCampaigns} QR · ${plan.aiGenerations < 0 ? "Unlimited" : plan.aiGenerations} AI regenerations`}
                   </p>
                 </CardContent>
               </Card>

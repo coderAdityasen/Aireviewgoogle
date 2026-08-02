@@ -54,7 +54,7 @@ export default async function ReviewActivityPage() {
     );
   }
 
-  // Starter: 10. Growth/Pro: high cap (practical unlimited for the feed UI).
+  // Starter: 10. Growth/Custom: high cap (practical unlimited for the feed UI).
   const isCapped = entitlements.reviewsLimit !== null;
   const limit = entitlements.reviewsLimit ?? 500;
   const reviewsLimit = entitlements.reviewsLimit;
@@ -179,7 +179,7 @@ export default async function ReviewActivityPage() {
             <p className="text-sm font-medium leading-6 text-muted-foreground">
               You have <strong>{totalReviews} reviews</strong>, but Starter only
               shows the <strong>{reviewsLimit} most recent</strong>. Upgrade to
-              Growth or Pro to unlock the full feed.
+              Growth or Custom to unlock the full feed.
             </p>
             <Button asChild className="mt-4">
               <Link href="/billing">Upgrade to see more reviews</Link>

@@ -1,4 +1,4 @@
-export type PlanKey = "starter" | "growth" | "pro";
+export type PlanKey = "starter" | "growth" | "custom";
 
 /** Feature row for plan cards (tick = included, cross = not included). */
 export type PlanFeature = {
@@ -10,9 +10,14 @@ export type PlanConfig = {
   key: PlanKey;
   name: string;
   tagline: string;
-  /** Monthly price in INR. Starter is free trial (0). */
+  /** Monthly price in INR. Starter trial and Custom sales plans use 0. */
   priceInr: number;
-  interval: "month" | "trial";
+  interval: "month" | "trial" | "custom";
+  /**
+   * When true, card shows Contact us (no Razorpay checkout).
+   * Limits below apply only after admin grants a custom entitlement.
+   */
+  contactSales: boolean;
   /** Max business locations / stores. */
   businesses: number;
   /** Max QR campaigns (store QR setups). */
@@ -37,7 +42,7 @@ export type PlanConfig = {
   privateFeedback: boolean;
   /** Max reviews shown in Reviews feed. null = unlimited. */
   reviewsLimit: number | null;
-  /** AI Google Business Profile (GMB) improvement suggestions. Growth/Pro only. */
+  /** AI Google Business Profile (GMB) improvement suggestions. Growth/Custom only. */
   gmbSuggestions: boolean;
   /** Marketing / UI feature list with included or excluded. */
   features: PlanFeature[];
@@ -53,6 +58,7 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
     tagline: "Free for 7 days — try ReviewFlow on one store.",
     priceInr: 0,
     interval: "trial",
+    contactSales: false,
     businesses: 1,
     qrCampaigns: 1,
     reviewRequests: 100,
@@ -80,8 +86,9 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
     key: "growth",
     name: "Growth",
     tagline: "More room for a growing local team.",
-    priceInr: 999,
+    priceInr: 499,
     interval: "month",
+    contactSales: false,
     businesses: 3,
     qrCampaigns: 15,
     reviewRequests: UNLIMITED,
@@ -104,14 +111,15 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
       { label: "CSV export", included: true },
     ],
   },
-  pro: {
-    key: "pro",
-    name: "Pro",
-    tagline: "A full review operation across locations.",
-    priceInr: 1999,
-    interval: "month",
-    businesses: 10,
-    qrCampaigns: 50,
+  custom: {
+    key: "custom",
+    name: "Custom",
+    tagline: "For multi-location brands that need tailored limits and support.",
+    priceInr: 0,
+    interval: "custom",
+    contactSales: true,
+    businesses: 50,
+    qrCampaigns: 200,
     reviewRequests: UNLIMITED,
     aiGenerations: UNLIMITED,
     aiLimitScope: "unlimited",
@@ -121,21 +129,21 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
     reviewsLimit: null,
     gmbSuggestions: true,
     features: [
-      { label: "10 locations / stores", included: true },
-      { label: "Unlimited QR scans", included: true },
-      { label: "Unlimited review requests", included: true },
-      { label: "Unlimited regenerations", included: true },
-      { label: "Unlimited reviews feed", included: true },
-      { label: "Private reviews", included: true },
-      { label: "GMB profile suggestions", included: true },
-      { label: "Future updates", included: true },
-      { label: "Priority features", included: true },
+      { label: "Everything in Growth", included: true },
+      { label: "Flexible location volume", included: true },
+      { label: "Dedicated onboarding", included: true },
+      { label: "Priority support", included: true },
+      { label: "Custom SLA & invoicing", included: true },
+      { label: "Tailored feature rollout", included: true },
     ],
   },
 };
 
 export function getPlan(key: string | null | undefined) {
-  return key && key in PLANS ? PLANS[key as PlanKey] : null;
+  if (!key) return null;
+  // Legacy "pro" rows map to Custom
+  if (key === "pro") return PLANS.custom;
+  return key in PLANS ? PLANS[key as PlanKey] : null;
 }
 
 export function isUnlimited(limit: number) {
@@ -146,9 +154,16 @@ export function formatLimit(limit: number) {
   return isUnlimited(limit) ? "Unlimited" : String(limit);
 }
 
+export function isBillablePlan(key: PlanKey) {
+  return key === "growth";
+}
+
 export function getRazorpayPlanId(key: PlanKey) {
   if (key === "starter") {
     throw new Error("Starter is a free trial plan and is not billed via Razorpay.");
+  }
+  if (key === "custom") {
+    throw new Error("Custom plan is contact-sales only and is not billed via Razorpay.");
   }
   const envKey = `RAZORPAY_PLAN_${key.toUpperCase()}_MONTHLY` as const;
   const value = process.env[envKey];

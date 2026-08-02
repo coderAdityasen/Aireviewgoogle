@@ -4,14 +4,17 @@ import { getPlan, type PlanKey } from "@/config/plans";
 import { requireUser } from "@/lib/auth/roles";
 import { createSubscriptionForOwner } from "@/features/billing/server/service";
 
-const schema = z.object({ planKey: z.enum(["growth", "pro"]) });
+const schema = z.object({ planKey: z.enum(["growth"]) });
 
 export async function POST(request: Request) {
   const user = await requireUser();
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Choose Growth or Pro. Starter is a free 7-day trial only." },
+      {
+        error:
+          "Choose Growth for self-serve billing. Starter is a free trial; Custom is contact sales only.",
+      },
       { status: 400 },
     );
   }

@@ -54,7 +54,7 @@ export type OwnerEntitlements = {
   trialExpired: boolean;
   privateFeedback: boolean;
   reviewsLimit: number | null;
-  /** AI GMB / Google Business Profile suggestions (Growth & Pro). */
+  /** AI GMB / Google Business Profile suggestions (Growth & Custom). */
   gmbSuggestions: boolean;
   /** null = unlimited */
   aiRemaining: number | null;
@@ -316,18 +316,18 @@ export const requirePaidOwner = cache(async () => {
 export async function assertBusinessLimit(ownerId: string) {
   const entitlements = await getOwnerEntitlements(ownerId);
   if (!entitlements.paid) throw new Error("An active plan is required.");
-  // Multi-location create is Growth/Pro only (first location uses onboarding).
+  // Multi-location create is Growth/Custom only (first location uses onboarding).
   if (
     entitlements.usage.businesses >= 1 &&
     entitlements.plan.key === "starter"
   ) {
     throw new Error(
-      "Starter includes 1 location. Upgrade to Growth or Pro to add more stores.",
+      "Starter includes 1 location. Upgrade to Growth or contact us for Custom to add more stores.",
     );
   }
   if (entitlements.usage.businesses >= entitlements.plan.businesses) {
     throw new Error(
-      `Your ${entitlements.plan.name} plan supports ${entitlements.plan.businesses} location/store${entitlements.plan.businesses === 1 ? "" : "s"}. Upgrade to Growth or Pro to add more.`,
+      `Your ${entitlements.plan.name} plan supports ${entitlements.plan.businesses} location/store${entitlements.plan.businesses === 1 ? "" : "s"}. Upgrade to Growth or contact us for Custom to add more.`,
     );
   }
 }
@@ -337,7 +337,7 @@ export async function assertQrCampaignLimit(ownerId: string) {
   if (!entitlements.paid) throw new Error("An active plan is required.");
   if (entitlements.usage.qrCampaigns >= entitlements.plan.qrCampaigns) {
     throw new Error(
-      `Your ${entitlements.plan.name} plan supports ${entitlements.plan.qrCampaigns} QR campaign${entitlements.plan.qrCampaigns === 1 ? "" : "s"}. Upgrade to Growth or Pro for more.`,
+      `Your ${entitlements.plan.name} plan supports ${entitlements.plan.qrCampaigns} QR campaign${entitlements.plan.qrCampaigns === 1 ? "" : "s"}. Upgrade to Growth or contact us for Custom for more.`,
     );
   }
 }
@@ -354,7 +354,7 @@ export async function assertReviewRequestLimit(ownerId: string) {
   if (entitlements.usage.reviewRequests >= entitlements.plan.reviewRequests) {
     throw new Error(
       entitlements.plan.key === "starter"
-        ? "Starter includes 100 review requests. Upgrade to Growth or Pro for unlimited review requests."
+        ? "Starter includes 100 review requests. Upgrade to Growth or contact us for Custom for unlimited review requests."
         : `Your ${entitlements.plan.name} plan has reached its review request limit.`,
     );
   }
@@ -373,7 +373,7 @@ export async function assertAiUsageLimit(ownerId: string) {
   if (entitlements.usage.aiGenerations >= entitlements.plan.aiGenerations) {
     throw new Error(
       entitlements.plan.key === "starter"
-        ? "Starter includes 3 regenerations total. Upgrade to Growth or Pro for unlimited regenerations."
+        ? "Starter includes 3 regenerations total. Upgrade to Growth or contact us for Custom for unlimited regenerations."
         : `Your ${entitlements.plan.name} plan has reached its regeneration limit.`,
     );
   }
@@ -383,7 +383,7 @@ export async function assertAiUsageLimit(ownerId: string) {
 export async function assertCsvExportAccess(ownerId: string) {
   const entitlements = await getOwnerEntitlements(ownerId);
   if (!entitlements.paid || entitlements.plan.key === "starter") {
-    throw new Error("CSV export is available on Growth and Pro plans.");
+    throw new Error("CSV export is available on Growth and Custom plans.");
   }
   return entitlements;
 }
@@ -392,7 +392,7 @@ export async function assertPrivateFeedbackAccess(ownerId: string) {
   const entitlements = await getOwnerEntitlements(ownerId);
   if (!entitlements.paid || !entitlements.privateFeedback) {
     throw new Error(
-      "Private feedback is available on Growth and Pro plans. Upgrade to unlock the inbox.",
+      "Private feedback is available on Growth and Custom plans. Upgrade to unlock the inbox.",
     );
   }
   return entitlements;
@@ -402,7 +402,7 @@ export async function assertGmbSuggestionsAccess(ownerId: string) {
   const entitlements = await getOwnerEntitlements(ownerId);
   if (!entitlements.paid || !entitlements.gmbSuggestions) {
     throw new Error(
-      "GMB profile suggestions are available on Growth and Pro plans. Upgrade to unlock AI profile tips.",
+      "GMB profile suggestions are available on Growth and Custom plans. Upgrade to unlock AI profile tips.",
     );
   }
   return entitlements;

@@ -133,7 +133,7 @@ async function upsertSubscription(input: { ownerId: string; planKey: PlanKey; pr
 
 function inferPlanKey(providerPlanId?: string | null): PlanKey | null {
   if (!providerPlanId) return null;
-  return (["starter", "growth", "pro"] as PlanKey[]).find((key) => {
+  return (["starter", "growth", "custom"] as PlanKey[]).find((key) => {
     try { return getRazorpayPlanId(key) === providerPlanId; } catch { return false; }
   }) ?? null;
 }

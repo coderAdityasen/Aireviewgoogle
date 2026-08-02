@@ -143,7 +143,7 @@ export function ResponseSettingsForm({
         title="Review style"
         description="How AI drafts sound by default for this location."
       >
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <SimpleSelect label="Tone" {...form.register("tone")}>
             <option value="friendly">Friendly</option>
             <option value="professional">Professional</option>
@@ -154,10 +154,6 @@ export function ResponseSettingsForm({
             <option value="short">Short</option>
             <option value="standard">Medium</option>
             <option value="detailed">Long</option>
-          </SimpleSelect>
-          <SimpleSelect label="Voice" {...form.register("writingPerspective")}>
-            <option value="first_person">I visited…</option>
-            <option value="third_person">They visited…</option>
           </SimpleSelect>
         </div>
       </SettingsCard>
@@ -538,7 +534,7 @@ export function ResponseSettingsForm({
               <div className="grid gap-6 sm:grid-cols-2">
                 <Range
                   label="Creativity"
-                  value={watched.creativity ?? 35}
+                  value={watched.creativity ?? 70}
                   register={form.register("creativity", { valueAsNumber: true })}
                 />
                 <Range

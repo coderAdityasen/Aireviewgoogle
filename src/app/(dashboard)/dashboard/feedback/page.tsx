@@ -111,10 +111,10 @@ function PrivateFeedbackLockedPreview() {
           </h1>
           <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
             Low-star messages customers send privately (not posted to Google).
-            Available on Growth and Pro.
+            Available on Growth and Custom.
           </p>
         </div>
-        <Badge variant="primary">Growth &amp; Pro</Badge>
+        <Badge variant="primary">Growth &amp; Custom</Badge>
       </div>
 
       <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-card shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
@@ -182,7 +182,7 @@ function PrivateFeedbackLockedPreview() {
             <p className="mt-2 text-sm font-medium leading-6 text-muted-foreground">
               Starter keeps 1–3★ messages private from Google, but the inbox is
               on <strong className="text-foreground">Growth</strong> and{" "}
-              <strong className="text-foreground">Pro</strong>. Upgrade to read
+              <strong className="text-foreground">Custom</strong>. Upgrade to read
               and resolve private feedback.
             </p>
             <Button asChild className="mt-5 w-full sm:w-auto">

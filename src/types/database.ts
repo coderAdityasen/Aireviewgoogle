@@ -12,7 +12,26 @@ export type AnalyticsEventType =
   | "review_copied"
   | "google_redirect_clicked"
   | "private_feedback_submitted";
-export type PlanKey = "starter" | "growth" | "pro";
+export type PlanKey = "starter" | "growth" | "custom";
+/** Legacy DB rows may still say pro; treat as custom in app code. */
+export type PlanKeyDb = PlanKey | "pro";
+
+export type CustomPlanInquiryStatus = "new" | "contacted" | "closed";
+
+export interface CustomPlanInquiry extends DbRecord {
+  id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  company_name: string | null;
+  locations_needed: string | null;
+  message: string;
+  user_id: string | null;
+  status: CustomPlanInquiryStatus;
+  admin_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
 export type SubscriptionStatus =
   | "created"
   | "authenticated"
@@ -351,6 +370,29 @@ export type Database = {
         { id: string; owner_id: string; granted_by: string; plan_key: PlanKey; reason: string; expires_at: string | null; created_at: string },
         Partial<{ owner_id: string; granted_by: string; plan_key: PlanKey; reason: string; expires_at: string | null }>,
         Partial<{ plan_key: PlanKey; reason: string; expires_at: string | null }>
+      >;
+      custom_plan_inquiries: Table<
+        CustomPlanInquiry,
+        Partial<CustomPlanInquiry> & {
+          full_name: string;
+          email: string;
+          message: string;
+        },
+        Partial<
+          Pick<
+            CustomPlanInquiry,
+            | "full_name"
+            | "email"
+            | "phone"
+            | "company_name"
+            | "locations_needed"
+            | "message"
+            | "user_id"
+            | "status"
+            | "admin_notes"
+            | "updated_at"
+          >
+        >
       >;
       gmb_suggestions: Table<
         {

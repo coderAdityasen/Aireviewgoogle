@@ -75,7 +75,7 @@ export async function generateReviewDraft(input: ReviewGenerationInput) {
       },
       body: JSON.stringify({
         model: aiConfig.model,
-        temperature: input.responseSettings ? 0.12 + (input.responseSettings.creativity / 100) * 0.5 : 0.2,
+        temperature: input.responseSettings ? 0.55 + (input.responseSettings.creativity / 100) * 0.4 : 0.2,
         max_tokens: 900,
         response_format: { type: "json_object" },
         ...(process.env.OPENROUTER_DATA_COLLECTION === "deny" ? { provider: { data_collection: "deny" } } : {}),

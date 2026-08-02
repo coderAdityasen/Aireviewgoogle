@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth/roles";
 import { verifyCheckoutAndPersist } from "@/features/billing/server/service";
 
-const schema = z.object({ planKey: z.enum(["growth", "pro"]), razorpay_payment_id: z.string().min(1), razorpay_subscription_id: z.string().min(1), razorpay_signature: z.string().min(1) });
+const schema = z.object({ planKey: z.enum(["growth"]), razorpay_payment_id: z.string().min(1), razorpay_subscription_id: z.string().min(1), razorpay_signature: z.string().min(1) });
 
 export async function POST(request: Request) {
   const user = await requireUser();

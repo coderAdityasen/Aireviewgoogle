@@ -98,7 +98,11 @@ const THEMES: Record<PosterTemplateId, Theme> = {
 function loadImage(source: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
-    image.crossOrigin = "anonymous";
+    // Only force CORS for remote/blob assets. Local /public files stay same-origin
+    // so canvas export is never tainted by missing ACAO headers.
+    if (/^(https?:|blob:)/i.test(source)) {
+      image.crossOrigin = "anonymous";
+    }
     image.onload = () => resolve(image);
     image.onerror = () =>
       reject(new Error("An image could not be included in the poster."));
@@ -184,16 +188,50 @@ function drawCenteredLines(
   return lines.length * lineHeight;
 }
 
-/** Draw a simple multicolor Google "G" mark. */
-function drawGoogleG(
+/** Hosted real Google wordmark (downloaded from Google branding assets into /public). */
+export const GOOGLE_LOGO_SRC = "/branding/google-logo-wordmark.png";
+/** Multicolor Google “G” mark fallback. */
+export const GOOGLE_G_LOGO_SRC = "/branding/google-g-logo.svg";
+
+/**
+ * Draw the real Google logo (wordmark). Falls back to the multicolor G, then a
+ * tiny colored badge if assets fail to load (should not happen in production).
+ * Paths are same-origin `/public` assets so canvas export stays untainted.
+ */
+async function drawGoogleLogo(
   ctx: CanvasRenderingContext2D,
   cx: number,
-  cy: number,
-  size: number,
-) {
+  y: number,
+  posterWidth: number,
+  posterHeight: number,
+): Promise<number> {
+  const logoH = Math.round(posterHeight * 0.055);
+  const maxW = Math.round(posterWidth * 0.34);
+
+  const candidates = [GOOGLE_LOGO_SRC, GOOGLE_G_LOGO_SRC];
+
+  for (const src of candidates) {
+    try {
+      const logo = await loadImage(src);
+      const naturalRatio = logo.width / Math.max(logo.height, 1);
+      let drawH = logoH;
+      let drawW = Math.round(drawH * naturalRatio);
+      if (drawW > maxW) {
+        drawW = maxW;
+        drawH = Math.round(drawW / naturalRatio);
+      }
+      ctx.drawImage(logo, cx - drawW / 2, y, drawW, drawH);
+      return y + drawH + Math.round(posterHeight * 0.018);
+    } catch {
+      // try next asset
+    }
+  }
+
+  // Last-resort: simple multicolor G badge (never the primary path)
+  const size = Math.round(posterHeight * 0.07);
+  const cy = y + size / 2;
   const r = size / 2;
   const colors = ["#4285F4", "#EA4335", "#FBBC05", "#34A853"];
-  // Outer ring segments
   const segs = [
     { start: -0.2, end: 0.55, color: colors[0] },
     { start: 0.55, end: 1.15, color: colors[2] },
@@ -201,19 +239,15 @@ function drawGoogleG(
     { start: 1.75, end: 2.35, color: colors[1] },
   ];
   ctx.lineWidth = size * 0.18;
-  ctx.lineCap = "butt";
   for (const seg of segs) {
     ctx.strokeStyle = seg.color;
     ctx.beginPath();
     ctx.arc(cx, cy, r * 0.72, Math.PI * seg.start, Math.PI * seg.end);
     ctx.stroke();
   }
-  // Blue arm of G
   ctx.fillStyle = colors[0];
   ctx.fillRect(cx, cy - size * 0.09, r * 0.78, size * 0.18);
-  // Center cutout
-  ctx.beginPath();
-  ctx.fillStyle = "transparent";
+  return y + size + Math.round(posterHeight * 0.02);
 }
 
 function drawStars(
@@ -332,7 +366,7 @@ export async function composePosterPng(
   const cx = width / 2;
   let y = cardY + Math.round(height * 0.06);
 
-  // Brand logo or Google G
+  // Business brand logo when set; otherwise real Google logo
   if (input.brandLogoUrl) {
     try {
       const logo = await loadImage(input.brandLogoUrl);
@@ -344,12 +378,10 @@ export async function composePosterPng(
       ctx.drawImage(logo, cx - logoW / 2, y, logoW, logoH);
       y += logoH + Math.round(height * 0.018);
     } catch {
-      drawGoogleG(ctx, cx, y + 36, 72);
-      y += 88;
+      y = await drawGoogleLogo(ctx, cx, y, width, height);
     }
   } else {
-    drawGoogleG(ctx, cx, y + 36, 72);
-    y += 88;
+    y = await drawGoogleLogo(ctx, cx, y, width, height);
   }
 
   // Stars
