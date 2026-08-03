@@ -226,38 +226,49 @@ export const getOwnerEntitlements = cache(
     const subscriptionPaid = subscriptionIsActive(subscription);
     const overridePaid = Boolean(override);
 
+    // Once a paid plan (or admin override) is active, trial must not override
+    // access dates / plan UI — even if trial_ends_at is still in the future.
+    const trialStillOpen = trialActive;
+    const onTrialOnly =
+      trialStillOpen && !subscriptionPaid && !overridePaid;
+
     let plan: PlanConfig;
     if (subscriptionPaid && subscription?.plan_key) {
       plan = getPlan(subscription.plan_key) ?? PLANS.starter;
     } else if (overridePaid && override?.plan_key) {
       plan = getPlan(override.plan_key) ?? PLANS.starter;
-    } else if (trialActive) {
+    } else if (onTrialOnly) {
       plan = PLANS.starter;
     } else {
       plan = PLANS.starter;
     }
 
-    const paid = subscriptionPaid || overridePaid || trialActive;
+    const paid = subscriptionPaid || overridePaid || onTrialOnly;
 
     const periodStart =
-      subscription?.current_period_start ??
-      (trialEndsAt
-        ? new Date(
-            new Date(trialEndsAt).getTime() - 7 * 24 * 60 * 60 * 1000,
-          ).toISOString()
-        : new Date(
-            new Date().getFullYear(),
-            new Date().getMonth(),
-            1,
-          ).toISOString());
+      subscriptionPaid && subscription?.current_period_start
+        ? subscription.current_period_start
+        : subscription?.current_period_start ??
+          (trialEndsAt
+            ? new Date(
+                new Date(trialEndsAt).getTime() - 7 * 24 * 60 * 60 * 1000,
+              ).toISOString()
+            : new Date(
+                new Date().getFullYear(),
+                new Date().getMonth(),
+                1,
+              ).toISOString());
     const periodEnd =
-      subscription?.current_period_end ??
-      trialEndsAt ??
-      new Date(
-        new Date().getFullYear(),
-        new Date().getMonth() + 1,
-        1,
-      ).toISOString();
+      subscriptionPaid &&
+      (subscription?.current_period_end || subscription?.access_until)
+        ? (subscription.current_period_end ?? subscription.access_until!)
+        : subscription?.current_period_end ??
+          trialEndsAt ??
+          new Date(
+            new Date().getFullYear(),
+            new Date().getMonth() + 1,
+            1,
+          ).toISOString();
 
     const [aiGenerations, reviewRequests] = await Promise.all([
       getRegenerationUsageCount(ownerId, plan, periodStart),
@@ -284,7 +295,8 @@ export const getOwnerEntitlements = cache(
       periodStart,
       periodEnd,
       trialEndsAt,
-      trialActive,
+      // Expose trial as active only when it is still the source of access.
+      trialActive: onTrialOnly,
       trialExpired: trialExpired && !subscriptionPaid && !overridePaid,
       privateFeedback: plan.privateFeedback,
       reviewsLimit: plan.reviewsLimit,

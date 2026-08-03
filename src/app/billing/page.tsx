@@ -95,10 +95,10 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
                   </Badge>
                 </div>
                 <p className="mt-2 text-sm font-medium text-muted-foreground">
-                  {entitlements.trialActive && entitlements.trialEndsAt
-                    ? `Trial ends ${new Date(entitlements.trialEndsAt).toLocaleDateString()}`
-                    : subscription?.access_until
-                      ? `Access until ${new Date(subscription.access_until).toLocaleDateString()}`
+                  {subscription?.access_until
+                    ? `Access until ${new Date(subscription.access_until).toLocaleDateString()}`
+                    : entitlements.trialActive && entitlements.trialEndsAt
+                      ? `Trial ends ${new Date(entitlements.trialEndsAt).toLocaleDateString()}`
                       : "Your workspace is active."}
                 </p>
               </div>

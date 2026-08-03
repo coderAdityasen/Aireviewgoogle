@@ -54,12 +54,12 @@ export default async function DashboardBillingPage() {
             ? "One-time access (no auto-renewal)"
             : "-");
 
-  const accessUntilLabel =
-    entitlements.trialActive && entitlements.trialEndsAt
+  // Prefer paid access window; only show trial end when user is on trial only.
+  const accessUntilLabel = subscription?.access_until
+    ? new Date(subscription.access_until).toLocaleDateString()
+    : entitlements.trialActive && entitlements.trialEndsAt
       ? new Date(entitlements.trialEndsAt).toLocaleDateString()
-      : subscription?.access_until
-        ? new Date(subscription.access_until).toLocaleDateString()
-        : "-";
+      : "-";
 
   return (
     <div className="space-y-5 pb-8">
