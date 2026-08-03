@@ -6,7 +6,9 @@ import {
   DEFAULT_GROWTH_BILLING_PERIOD,
   GROWTH_BILLING_OPTIONS,
   addMonths,
+  formatGrowthPurchaseSummary,
   getGrowthBillingOption,
+  getGrowthOptionFromAmountPaise,
 } from "@/config/plans";
 
 describe("Razorpay billing safety", () => {
@@ -72,5 +74,15 @@ describe("Growth one-time billing options", () => {
     expect(addMonths(start, 1).toISOString()).toBe("2026-02-15T12:00:00.000Z");
     expect(addMonths(start, 6).toISOString()).toBe("2026-07-15T12:00:00.000Z");
     expect(addMonths(start, 12).toISOString()).toBe("2027-01-15T12:00:00.000Z");
+  });
+
+  it("infers 6-month purchase from payment amount for billing UI", () => {
+    expect(getGrowthOptionFromAmountPaise(199900)?.key).toBe("6m");
+    expect(
+      formatGrowthPurchaseSummary({ amountPaise: 199900 }).priceLabel,
+    ).toBe("₹1,999 · 6 months");
+    expect(
+      formatGrowthPurchaseSummary({ amountPaise: 199900 }).cycleLabel,
+    ).toContain("6 months");
   });
 });

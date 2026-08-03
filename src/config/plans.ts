@@ -36,6 +36,80 @@ export function isGrowthBillingPeriod(key: string): key is GrowthBillingPeriod {
   return GROWTH_BILLING_OPTIONS.some((option) => option.key === key);
 }
 
+/** Infer Growth package from Razorpay amount in paise (e.g. 199900 → 6 months). */
+export function getGrowthOptionFromAmountPaise(
+  amountPaise: number | null | undefined,
+): GrowthBillingOption | null {
+  if (typeof amountPaise !== "number" || amountPaise <= 0) return null;
+  return (
+    GROWTH_BILLING_OPTIONS.find((option) => option.priceInr * 100 === amountPaise) ??
+    null
+  );
+}
+
+/**
+ * Infer duration label from subscription period dates when payment amount is unknown.
+ * Uses calendar-month distance (1 / 6 / 12) with a small tolerance.
+ */
+export function inferGrowthOptionFromPeriod(
+  periodStart: string | null | undefined,
+  periodEnd: string | null | undefined,
+): GrowthBillingOption | null {
+  if (!periodStart || !periodEnd) return null;
+  const start = new Date(periodStart);
+  const end = new Date(periodEnd);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+
+  const months =
+    (end.getFullYear() - start.getFullYear()) * 12 +
+    (end.getMonth() - start.getMonth());
+
+  return (
+    GROWTH_BILLING_OPTIONS.find((option) => option.months === months) ??
+    GROWTH_BILLING_OPTIONS.find(
+      (option) => Math.abs(option.months - months) <= 1,
+    ) ??
+    null
+  );
+}
+
+/** Human-readable Growth purchase summary for billing UI. */
+export function formatGrowthPurchaseSummary(input: {
+  amountPaise?: number | null;
+  periodStart?: string | null;
+  periodEnd?: string | null;
+}): { priceLabel: string; cycleLabel: string; option: GrowthBillingOption | null } {
+  const fromAmount = getGrowthOptionFromAmountPaise(input.amountPaise);
+  const fromPeriod = inferGrowthOptionFromPeriod(
+    input.periodStart,
+    input.periodEnd,
+  );
+  const option = fromAmount ?? fromPeriod;
+
+  if (option) {
+    return {
+      option,
+      priceLabel: `₹${option.priceInr.toLocaleString("en-IN")} · ${option.label}`,
+      cycleLabel: `${option.label} one-time (no auto-renewal)`,
+    };
+  }
+
+  if (typeof input.amountPaise === "number" && input.amountPaise > 0) {
+    const inr = Math.round(input.amountPaise / 100);
+    return {
+      option: null,
+      priceLabel: `₹${inr.toLocaleString("en-IN")} one-time`,
+      cycleLabel: "One-time access (no auto-renewal)",
+    };
+  }
+
+  return {
+    option: null,
+    priceLabel: "Growth one-time",
+    cycleLabel: "One-time access (no auto-renewal)",
+  };
+}
+
 /** Feature row for plan cards (tick = included, cross = not included). */
 export type PlanFeature = {
   label: string;
