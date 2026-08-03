@@ -29,8 +29,9 @@ export default async function PricingPage() {
 
         <p className="mt-10 text-center text-sm font-medium text-muted-foreground">
           After the 7-day Starter trial, the dashboard and public QR flows lock
-          until you upgrade. Growth is billed monthly via Razorpay. Custom is
-          sales-assisted — submit Contact us and our team will follow up.
+          until you upgrade. Growth is a one-time Razorpay payment (1 month /
+          6 months / 1 year). Custom is sales-assisted — submit Contact us and
+          our team will follow up.
         </p>
         <p className="mt-4 text-center text-sm font-medium">
           <Link href="/signup" className="cursor-pointer font-extrabold text-primary hover:underline">

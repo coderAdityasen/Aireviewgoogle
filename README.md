@@ -10,7 +10,7 @@ ReviewFlow is a production-ready Next.js SaaS application for QR-powered custome
 - Server-side admin utilities use `SUPABASE_SERVICE_ROLE_KEY` only after server authorization checks.
 - AI review rewriting is behind `/api/ai/review-draft` with OpenRouter support, rate limiting, grounding checks and usage logging.
 - Admins can edit the review-generation style prompt in `/admin/settings`; fixed server-side safety rules still prevent fabricated review details.
-- Paid access is managed through a provider abstraction with Razorpay Subscriptions as the initial provider. Local automated tests may set `BILLING_MOCK_MODE=true`; production startup rejects that setting.
+- Paid access is managed through a provider abstraction with Razorpay **one-time Orders** for Growth (1 month / 6 months / 1 year). Local automated tests may set `BILLING_MOCK_MODE=true`; production startup rejects that setting.
 
 ## Database
 
@@ -46,13 +46,23 @@ OPENROUTER_APP_NAME=ReviewFlow
 OPENROUTER_DATA_COLLECTION=deny
 ```
 
-## Razorpay Test Mode
+## Razorpay Test Mode (one-time Growth payments)
 
-Create three monthly Plans in the Razorpay Dashboard Test Mode using the amounts in `src/config/plans.ts`. Put each returned Plan ID in `RAZORPAY_PLAN_STARTER_MONTHLY`, `RAZORPAY_PLAN_GROWTH_MONTHLY` and `RAZORPAY_PLAN_PRO_MONTHLY`. Set `NEXT_PUBLIC_RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` from the Test Mode API keys.
+Growth uses **direct one-time payments** via the Razorpay Orders API (Key ID + Key Secret). No Razorpay Subscription Plans are required.
 
-Configure the webhook endpoint as `${NEXT_PUBLIC_APP_URL}/api/webhooks/razorpay`, copy its secret to `RAZORPAY_WEBHOOK_SECRET`, and subscribe to: `subscription.authenticated`, `subscription.activated`, `subscription.charged`, `subscription.updated`, `subscription.pending`, `subscription.halted`, `subscription.paused`, `subscription.resumed`, `subscription.cancelled`, and `subscription.completed`.
+Set `NEXT_PUBLIC_RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` from the Test Mode API keys.
 
-The checkout sequence is: choose a plan → sign up or sign in → server-created Razorpay subscription → Standard Checkout → server-side HMAC verification → server-side subscription fetch → short polling on `/billing/processing` → onboarding. A browser success callback alone never grants access.
+Pricing is defined in `src/config/plans.ts` (`GROWTH_BILLING_OPTIONS`):
+
+| Duration | Amount (INR) |
+| -------- | ------------ |
+| 1 month  | ₹499         |
+| 6 months | ₹1,999       |
+| 1 year   | ₹2,999       |
+
+Configure the webhook endpoint as `${NEXT_PUBLIC_APP_URL}/api/webhooks/razorpay`, copy its secret to `RAZORPAY_WEBHOOK_SECRET`, and subscribe to: `payment.captured`, `payment.failed`, and `order.paid`.
+
+The checkout sequence is: choose Growth → pick duration → sign up or sign in → server-created Razorpay Order → Standard Checkout → server-side HMAC verification (`order_id|payment_id`) → grant access until paid period ends → short polling on `/billing/processing` → onboarding. A browser success callback alone never grants access.
 
 ## Validation
 

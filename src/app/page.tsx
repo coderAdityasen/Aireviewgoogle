@@ -3,7 +3,11 @@ import { MarketingHeader } from "@/components/layout/marketing-header";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PLANS } from "@/config/plans";
+import { getGrowthBillingOption, PLANS } from "@/config/plans";
+
+const growthYear = getGrowthBillingOption("12m")!;
+const growthMonth = getGrowthBillingOption("1m")!;
+const growthSix = getGrowthBillingOption("6m")!;
 
 const steps = [
   [
@@ -263,14 +267,15 @@ export default function HomePage() {
                         "Custom"
                       ) : (
                         <>
-                          ₹{plan.priceInr.toLocaleString("en-IN")}
-                          <span className="text-sm font-semibold text-muted-foreground">/month</span>
+                          ₹{growthYear.priceInr.toLocaleString("en-IN")}
+                          <span className="text-sm font-semibold text-muted-foreground">/year</span>
                         </>
                       )}
                     </p>
                     {plan.key !== "starter" && !plan.contactSales ? (
                       <p className="mt-1.5 text-xs font-medium text-muted-foreground">
-                        ≈ ₹{Math.round(plan.priceInr / 30).toLocaleString("en-IN")}/day
+                        From ₹{growthMonth.priceInr.toLocaleString("en-IN")}/mo · or 6 mo ₹
+                        {growthSix.priceInr.toLocaleString("en-IN")}
                       </p>
                     ) : null}
                   </div>

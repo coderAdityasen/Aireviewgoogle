@@ -1,5 +1,41 @@
 export type PlanKey = "starter" | "growth" | "custom";
 
+/** One-time Growth checkout duration options. */
+export type GrowthBillingPeriod = "1m" | "6m" | "12m";
+
+export type GrowthBillingOption = {
+  key: GrowthBillingPeriod;
+  label: string;
+  /** Access length in calendar months. */
+  months: number;
+  /** One-time price in INR. */
+  priceInr: number;
+  /** Short UI helper, e.g. "Best value". */
+  badge?: string;
+};
+
+/**
+ * Growth is billed as a one-time Razorpay payment (not a recurring subscription).
+ * User picks duration; access lasts for that period after payment is verified.
+ */
+export const GROWTH_BILLING_OPTIONS: readonly GrowthBillingOption[] = [
+  { key: "1m", label: "1 month", months: 1, priceInr: 499 },
+  { key: "6m", label: "6 months", months: 6, priceInr: 1999, badge: "Save more" },
+  { key: "12m", label: "1 year", months: 12, priceInr: 2999, badge: "Best value" },
+] as const;
+
+/** Default duration shown on plan cards and pre-selected at checkout. */
+export const DEFAULT_GROWTH_BILLING_PERIOD: GrowthBillingPeriod = "12m";
+
+export function getGrowthBillingOption(key: string | null | undefined): GrowthBillingOption | null {
+  if (!key) return null;
+  return GROWTH_BILLING_OPTIONS.find((option) => option.key === key) ?? null;
+}
+
+export function isGrowthBillingPeriod(key: string): key is GrowthBillingPeriod {
+  return GROWTH_BILLING_OPTIONS.some((option) => option.key === key);
+}
+
 /** Feature row for plan cards (tick = included, cross = not included). */
 export type PlanFeature = {
   label: string;
@@ -10,7 +46,7 @@ export type PlanConfig = {
   key: PlanKey;
   name: string;
   tagline: string;
-  /** Monthly price in INR. Starter trial and Custom sales plans use 0. */
+  /** Base monthly price in INR (display). Starter trial and Custom sales plans use 0. */
   priceInr: number;
   interval: "month" | "trial" | "custom";
   /**
@@ -158,15 +194,9 @@ export function isBillablePlan(key: PlanKey) {
   return key === "growth";
 }
 
-export function getRazorpayPlanId(key: PlanKey) {
-  if (key === "starter") {
-    throw new Error("Starter is a free trial plan and is not billed via Razorpay.");
-  }
-  if (key === "custom") {
-    throw new Error("Custom plan is contact-sales only and is not billed via Razorpay.");
-  }
-  const envKey = `RAZORPAY_PLAN_${key.toUpperCase()}_MONTHLY` as const;
-  const value = process.env[envKey];
-  if (!value) throw new Error(`${envKey} is missing.`);
-  return value;
+/** Add `months` calendar months to a date (used for one-time access windows). */
+export function addMonths(from: Date, months: number): Date {
+  const result = new Date(from.getTime());
+  result.setMonth(result.getMonth() + months);
+  return result;
 }

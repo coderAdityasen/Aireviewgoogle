@@ -3,16 +3,40 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth/roles";
 import { verifyCheckoutAndPersist } from "@/features/billing/server/service";
 
-const schema = z.object({ planKey: z.enum(["growth"]), razorpay_payment_id: z.string().min(1), razorpay_subscription_id: z.string().min(1), razorpay_signature: z.string().min(1) });
+const schema = z.object({
+  planKey: z.enum(["growth"]),
+  billingPeriod: z.enum(["1m", "6m", "12m"]),
+  razorpay_payment_id: z.string().min(1),
+  razorpay_order_id: z.string().min(1),
+  razorpay_signature: z.string().min(1),
+});
 
 export async function POST(request: Request) {
   const user = await requireUser();
   const parsed = schema.safeParse(await request.json());
-  if (!parsed.success) return NextResponse.json({ error: "The checkout response was incomplete." }, { status: 400 });
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "The checkout response was incomplete." },
+      { status: 400 },
+    );
+  }
   try {
-    const subscription = await verifyCheckoutAndPersist({ ownerId: user.id, planKey: parsed.data.planKey, paymentId: parsed.data.razorpay_payment_id, subscriptionId: parsed.data.razorpay_subscription_id, signature: parsed.data.razorpay_signature });
+    const subscription = await verifyCheckoutAndPersist({
+      ownerId: user.id,
+      planKey: parsed.data.planKey,
+      billingPeriod: parsed.data.billingPeriod,
+      paymentId: parsed.data.razorpay_payment_id,
+      orderId: parsed.data.razorpay_order_id,
+      signature: parsed.data.razorpay_signature,
+    });
     return NextResponse.json({ ok: true, status: subscription.status });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Payment verification failed." }, { status: 400 });
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error ? error.message : "Payment verification failed.",
+      },
+      { status: 400 },
+    );
   }
 }

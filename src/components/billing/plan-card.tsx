@@ -1,6 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import type { PlanConfig } from "@/config/plans";
+import {
+  DEFAULT_GROWTH_BILLING_PERIOD,
+  GROWTH_BILLING_OPTIONS,
+  getGrowthBillingOption,
+  type GrowthBillingPeriod,
+  type PlanConfig,
+} from "@/config/plans";
 import { CustomPlanContactDialog } from "@/components/billing/custom-plan-contact-dialog";
 
 /** Inline icons — avoid lucide-react in RSC (createContext only works in client components). */
@@ -39,6 +48,30 @@ function CrossIcon() {
   );
 }
 
+function ChevronDownIcon() {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      className="pointer-events-none h-4 w-4 text-muted-foreground"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 7.5 10 12.5 15 7.5" />
+    </svg>
+  );
+}
+
+function growthSuffix(months: number) {
+  if (months === 1) return "/month";
+  if (months === 6) return "/6 months";
+  if (months === 12) return "/year";
+  return `/${months} months`;
+}
+
 export function PlanCard({
   plan,
   highlighted = false,
@@ -54,8 +87,30 @@ export function PlanCard({
 }) {
   const isTrial = plan.key === "starter";
   const isCustom = plan.contactSales || plan.key === "custom";
+  const isGrowth = plan.key === "growth";
+
+  const [billingPeriod, setBillingPeriod] = useState<GrowthBillingPeriod>(
+    DEFAULT_GROWTH_BILLING_PERIOD,
+  );
+
+  const growthOption =
+    getGrowthBillingOption(billingPeriod) ??
+    getGrowthBillingOption(DEFAULT_GROWTH_BILLING_PERIOD)!;
+
+  const growthPrice = isGrowth ? growthOption.priceInr : plan.priceInr;
+  const growthMonths = isGrowth ? growthOption.months : 1;
+  const perDay = Math.max(
+    1,
+    Math.round(growthPrice / (growthMonths * 30)),
+  );
+
   const target =
-    href ?? (isTrial ? "/signup" : `/billing/checkout?plan=${plan.key}`);
+    href ??
+    (isTrial
+      ? "/signup"
+      : isGrowth
+        ? `/billing/checkout?plan=${plan.key}&period=${billingPeriod}`
+        : `/billing/checkout?plan=${plan.key}`);
 
   return (
     <article
@@ -92,8 +147,44 @@ export function PlanCard({
         ) : null}
       </div>
 
-      {/* Price row — same structure for all plans (Vercel/Stripe style) */}
-      <div className="mt-6">
+      {/* Duration select — Growth only, between tagline and price (country-select style) */}
+      {isGrowth ? (
+        <div className="mt-4">
+          <label
+            htmlFor={`growth-period-${plan.key}`}
+            className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground"
+          >
+            Billing period
+          </label>
+          <div className="relative">
+            <select
+              id={`growth-period-${plan.key}`}
+              value={billingPeriod}
+              onChange={(event) =>
+                setBillingPeriod(event.target.value as GrowthBillingPeriod)
+              }
+              className="h-11 w-full appearance-none rounded-xl border border-border/90 bg-white py-2 pl-3.5 pr-10 text-sm font-bold text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/20"
+            >
+              {GROWTH_BILLING_OPTIONS.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.key === "1m"
+                    ? "1 month"
+                    : option.key === "6m"
+                      ? "6 months"
+                      : "1 year"}
+                  {option.badge ? ` · ${option.badge}` : ""}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+              <ChevronDownIcon />
+            </span>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Price row */}
+      <div className={isGrowth ? "mt-4" : "mt-6"}>
         {isTrial ? (
           <p className="text-4xl font-extrabold tracking-[-0.07em] text-foreground">
             Free
@@ -108,13 +199,13 @@ export function PlanCard({
         ) : (
           <>
             <p className="text-4xl font-extrabold tracking-[-0.07em] text-foreground">
-              ₹{plan.priceInr.toLocaleString("en-IN")}
+              ₹{growthPrice.toLocaleString("en-IN")}
               <span className="ml-1 text-sm font-bold tracking-normal text-muted-foreground">
-                /month
+                {growthSuffix(growthMonths)}
               </span>
             </p>
             <p className="mt-1.5 text-xs font-medium text-muted-foreground">
-              ≈ ₹{Math.round(plan.priceInr / 30).toLocaleString("en-IN")}/day
+              ≈ ₹{perDay.toLocaleString("en-IN")}/day
             </p>
           </>
         )}

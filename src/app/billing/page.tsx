@@ -131,7 +131,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
         ) : null}
 
         <Card className="mx-auto mt-8 max-w-3xl"><CardHeader><CardTitle>Payment history</CardTitle><p className="text-sm font-medium text-muted-foreground">Verified provider transactions for this account.</p></CardHeader><CardContent>{payments?.length ? <div className="space-y-2">{payments.map((payment) => <div key={payment.provider_payment_id} className="flex flex-wrap justify-between gap-3 border-b py-3 text-sm last:border-0"><span>{new Date(payment.paid_at ?? payment.created_at).toLocaleDateString()} · {payment.currency} {(payment.amount / 100).toLocaleString("en-IN")}</span><Badge>{payment.status}</Badge></div>)}</div> : <p className="rounded-2xl bg-muted p-4 text-sm font-medium text-muted-foreground">Verified payments will appear here after checkout.</p>}</CardContent></Card>
-        <p className="py-8 text-center text-xs font-medium text-muted-foreground">Razorpay Test Mode is used locally. ReviewFlow verifies payment signatures and subscription state on the server.</p>
+        <p className="py-8 text-center text-xs font-medium text-muted-foreground">Razorpay Test Mode is used locally. Growth is a one-time payment — ReviewFlow verifies order signatures and access windows on the server.</p>
       </div>
     </main>
   );

@@ -19,14 +19,15 @@ export function PlanSelection({
             Start free, upgrade when you grow
           </h2>
           <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-muted-foreground">
-            Starter is a free 7-day trial. Growth is self-serve monthly billing.
+            Starter is a free 7-day trial. Growth is a one-time Razorpay payment.
             Custom is tailored with our sales team for multi-location brands.
           </p>
         </div>
         <span className="text-xs font-bold text-muted-foreground">
-          Upgrade anytime · cancel paid plans anytime
+          Upgrade anytime · no auto-renewal on Growth
         </span>
       </div>
+
       <div className="mt-7 grid items-stretch gap-4 lg:grid-cols-3">
         {Object.values(PLANS).map((plan) => (
           <PlanCard

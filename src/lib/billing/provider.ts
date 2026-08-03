@@ -1,29 +1,48 @@
 import "server-only";
 
-import { getRazorpayPlanId, type PlanKey } from "@/config/plans";
+import {
+  type GrowthBillingPeriod,
+  type PlanKey,
+} from "@/config/plans";
 import { verifyHmacSha256 } from "@/lib/billing/crypto";
 
-export type ProviderSubscription = {
+export type ProviderOrder = {
   id: string;
-  plan_id?: string;
+  amount: number;
+  currency: string;
   status: string;
-  current_start?: number | null;
-  current_end?: number | null;
-  charge_at?: number | null;
-  ended_at?: number | null;
-  start_at?: number | null;
+  receipt?: string | null;
+  notes?: Record<string, string>;
+};
+
+export type ProviderPayment = {
+  id: string;
+  order_id?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
   notes?: Record<string, string>;
 };
 
 export type BillingProvider = {
-  createSubscription(input: { planKey: PlanKey; ownerId: string; email?: string | null }): Promise<ProviderSubscription>;
-  fetchSubscription(subscriptionId: string): Promise<ProviderSubscription>;
-  cancelSubscription(subscriptionId: string, cancelAtCycleEnd: boolean): Promise<ProviderSubscription>;
-  verifyCheckoutSignature(input: { paymentId: string; subscriptionId: string; signature: string }): boolean;
+  createOrder(input: {
+    planKey: PlanKey;
+    billingPeriod: GrowthBillingPeriod;
+    amountInr: number;
+    ownerId: string;
+    email?: string | null;
+  }): Promise<ProviderOrder>;
+  fetchOrder(orderId: string): Promise<ProviderOrder>;
+  fetchPayment(paymentId: string): Promise<ProviderPayment>;
+  verifyCheckoutSignature(input: {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+  }): boolean;
   verifyWebhookSignature(rawBody: string, signature: string): boolean;
 };
 
-type RazorpayResponse = ProviderSubscription & { customer_id?: string };
+type RazorpayOrderResponse = ProviderOrder & { entity?: string };
 
 export class RazorpayBillingProvider implements BillingProvider {
   private readonly baseUrl = "https://api.razorpay.com/v1";
@@ -35,34 +54,59 @@ export class RazorpayBillingProvider implements BillingProvider {
     return `Basic ${Buffer.from(`${keyId}:${secret}`).toString("base64")}`;
   }
 
-  async createSubscription(input: { planKey: PlanKey; ownerId: string; email?: string | null }) {
-    const response = await this.request<RazorpayResponse>("/subscriptions", {
+  async createOrder(input: {
+    planKey: PlanKey;
+    billingPeriod: GrowthBillingPeriod;
+    amountInr: number;
+    ownerId: string;
+    email?: string | null;
+  }) {
+    const amountPaise = Math.round(input.amountInr * 100);
+    if (amountPaise < 100) throw new Error("Order amount must be at least ₹1.");
+
+    const response = await this.request<RazorpayOrderResponse>("/orders", {
       method: "POST",
       body: JSON.stringify({
-        plan_id: getRazorpayPlanId(input.planKey),
-        total_count: 120,
-        customer_notify: 1,
-        notes: { reviewflow_owner_id: input.ownerId, reviewflow_plan_key: input.planKey }
-      })
+        amount: amountPaise,
+        currency: "INR",
+        receipt: `rf_${input.ownerId.slice(0, 8)}_${Date.now()}`.slice(0, 40),
+        notes: {
+          reviewflow_owner_id: input.ownerId,
+          reviewflow_plan_key: input.planKey,
+          reviewflow_billing_period: input.billingPeriod,
+          ...(input.email ? { reviewflow_email: input.email } : {}),
+        },
+      }),
     });
     return response;
   }
 
-  fetchSubscription(subscriptionId: string) {
-    return this.request<RazorpayResponse>(`/subscriptions/${encodeURIComponent(subscriptionId)}`, { method: "GET" });
-  }
-
-  cancelSubscription(subscriptionId: string, cancelAtCycleEnd: boolean) {
-    return this.request<RazorpayResponse>(`/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`, {
-      method: "POST",
-      body: JSON.stringify({ cancel_at_cycle_end: cancelAtCycleEnd ? 1 : 0 })
+  fetchOrder(orderId: string) {
+    return this.request<ProviderOrder>(`/orders/${encodeURIComponent(orderId)}`, {
+      method: "GET",
     });
   }
 
-  verifyCheckoutSignature(input: { paymentId: string; subscriptionId: string; signature: string }) {
+  fetchPayment(paymentId: string) {
+    return this.request<ProviderPayment>(
+      `/payments/${encodeURIComponent(paymentId)}`,
+      { method: "GET" },
+    );
+  }
+
+  verifyCheckoutSignature(input: {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+  }) {
     const secret = process.env.RAZORPAY_KEY_SECRET;
     if (!secret) throw new Error("RAZORPAY_KEY_SECRET is missing.");
-    return verifyHmacSha256({ signature: input.signature, secret, message: `${input.paymentId}|${input.subscriptionId}` });
+    // One-time Checkout signature: order_id|payment_id
+    return verifyHmacSha256({
+      signature: input.signature,
+      secret,
+      message: `${input.orderId}|${input.paymentId}`,
+    });
   }
 
   verifyWebhookSignature(rawBody: string, signature: string) {
@@ -74,40 +118,89 @@ export class RazorpayBillingProvider implements BillingProvider {
   private async request<T>(path: string, init: RequestInit) {
     const response = await fetch(`${this.baseUrl}${path}`, {
       ...init,
-      headers: { Authorization: this.authHeader, "Content-Type": "application/json", ...(init.headers ?? {}) }
+      headers: {
+        Authorization: this.authHeader,
+        "Content-Type": "application/json",
+        ...(init.headers ?? {}),
+      },
     });
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      throw new Error(`Razorpay request failed (${response.status}): ${body.slice(0, 300)}`);
+      throw new Error(
+        `Razorpay request failed (${response.status}): ${body.slice(0, 300)}`,
+      );
     }
     return (await response.json()) as T;
   }
 }
 
+let testBillingProvider: TestBillingProvider | null = null;
+
 export function getBillingProvider(): BillingProvider {
   if (process.env.BILLING_MOCK_MODE === "true") {
-    if (process.env.NODE_ENV === "production") throw new Error("BILLING_MOCK_MODE cannot be enabled in production.");
-    return new TestBillingProvider();
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("BILLING_MOCK_MODE cannot be enabled in production.");
+    }
+    if (!testBillingProvider) testBillingProvider = new TestBillingProvider();
+    return testBillingProvider;
   }
   return new RazorpayBillingProvider();
 }
 
 export class TestBillingProvider implements BillingProvider {
-  async createSubscription(input: { planKey: PlanKey; ownerId: string }) {
+  private readonly orders = new Map<string, ProviderOrder>();
+
+  async createOrder(input: {
+    planKey: PlanKey;
+    billingPeriod: GrowthBillingPeriod;
+    amountInr: number;
+    ownerId: string;
+  }) {
+    const order: ProviderOrder = {
+      id: `order_test_${input.ownerId.slice(0, 8)}_${input.billingPeriod}_${Date.now()}`,
+      amount: Math.round(input.amountInr * 100),
+      currency: "INR",
+      status: "created",
+      notes: {
+        reviewflow_owner_id: input.ownerId,
+        reviewflow_plan_key: input.planKey,
+        reviewflow_billing_period: input.billingPeriod,
+      },
+    };
+    this.orders.set(order.id, order);
+    return order;
+  }
+
+  async fetchOrder(orderId: string) {
+    const existing = this.orders.get(orderId);
+    if (existing) {
+      return { ...existing, status: "paid" };
+    }
+    // Fallback for isolated unit tests that never called createOrder.
     return {
-      id: `test_sub_${input.ownerId.slice(0, 8)}_${input.planKey}`,
-      status: "active",
-      current_start: Math.floor(Date.now() / 1000),
-      current_end: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
-      notes: { reviewflow_owner_id: input.ownerId, reviewflow_plan_key: input.planKey }
+      id: orderId,
+      amount: 49900,
+      currency: "INR",
+      status: "paid",
+      notes: {},
     };
   }
-  async fetchSubscription(subscriptionId: string) {
-    return { id: subscriptionId, status: "active", current_start: Math.floor(Date.now() / 1000), current_end: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60 };
+
+  async fetchPayment(paymentId: string) {
+    return {
+      id: paymentId,
+      order_id: "order_test",
+      amount: 49900,
+      currency: "INR",
+      status: "captured",
+    };
   }
-  async cancelSubscription(subscriptionId: string, cancelAtCycleEnd: boolean) {
-    return { id: subscriptionId, status: cancelAtCycleEnd ? "active" : "cancelled", current_end: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60 };
+
+  verifyCheckoutSignature() {
+    return true;
   }
-  verifyCheckoutSignature() { return true; }
-  verifyWebhookSignature() { return true; }
+
+  verifyWebhookSignature() {
+    return true;
+  }
 }
