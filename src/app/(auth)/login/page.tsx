@@ -1,5 +1,6 @@
 import { AuthForm } from "@/features/auth/components/auth-form";
 import { BrandMark } from "@/components/layout/brand-mark";
+import { PoweredBy } from "@/components/layout/powered-by";
 import {
   Card,
   CardContent,
@@ -45,9 +46,12 @@ export default async function LoginPage({
             Know what customers are saying before the next decision.
           </h1>
         </div>
-        <p className="relative max-w-md text-sm font-medium leading-6 text-white/55">
-          A focused workspace for QR campaigns, grounded review drafts and private follow-up.
-        </p>
+        <div className="relative space-y-4">
+          <p className="max-w-md text-sm font-medium leading-6 text-white/55">
+            A focused workspace for QR campaigns, grounded review drafts and private follow-up.
+          </p>
+          <PoweredBy light className="text-left" />
+        </div>
       </div>
 
       <div className="flex flex-col items-center justify-center px-4 py-10 sm:px-8">
@@ -80,6 +84,7 @@ export default async function LoginPage({
             />
           </CardContent>
         </Card>
+        <PoweredBy className="mt-8" />
       </div>
     </main>
   );

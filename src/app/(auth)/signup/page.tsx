@@ -1,5 +1,6 @@
 import { AuthForm } from "@/features/auth/components/auth-form";
 import { BrandMark } from "@/components/layout/brand-mark";
+import { PoweredBy } from "@/components/layout/powered-by";
 import {
   Card,
   CardContent,
@@ -49,10 +50,13 @@ export default async function SignupPage({
             ))}
           </ul>
         </div>
-        <p className="relative max-w-md text-sm font-medium leading-6 text-white/55">
-          Your customer writes what really happened. Your team gets a clear signal. Google stays in
-          the customer&apos;s hands.
-        </p>
+        <div className="relative space-y-4">
+          <p className="max-w-md text-sm font-medium leading-6 text-white/55">
+            Your customer writes what really happened. Your team gets a clear signal. Google stays in
+            the customer&apos;s hands.
+          </p>
+          <PoweredBy light className="text-left" />
+        </div>
       </div>
 
       <div className="flex flex-col items-center justify-center px-4 py-10 sm:px-8">
@@ -68,6 +72,7 @@ export default async function SignupPage({
             <AuthForm mode="signup" plan={plan} next={next} />
           </CardContent>
         </Card>
+        <PoweredBy className="mt-8" />
       </div>
     </main>
   );

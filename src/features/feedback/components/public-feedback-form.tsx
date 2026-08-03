@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { Business } from "@/types/database";
 import type { RatingTagMap } from "@/lib/feedback/rating-tags";
+import { BRAND } from "@/config/brand";
 
 type Tone = "friendly" | "professional" | "warm" | "concise";
 
@@ -505,7 +506,7 @@ export function PublicFeedbackForm({
         ) : null}
       </div>
       <footer className="border-t border-[#e7ecf3] bg-[#f8fafc] px-6 py-4 text-center text-[11px] font-semibold text-[#7a8ba3]">
-        Powered by Adsngrow
+        {BRAND.poweredBy}
       </footer>
     </section>
   );

@@ -1,4 +1,5 @@
 import { MarketingHeader } from "@/components/layout/marketing-header";
+import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export default function TermsPage() {
   return (
@@ -12,6 +13,7 @@ export default function TermsPage() {
           <p>Owners may not use ReviewFlow to fabricate reviews, hide negative customer feedback or selectively route customers by sentiment.</p>
         </div>
       </main>
+      <MarketingFooter />
     </>
   );
 }

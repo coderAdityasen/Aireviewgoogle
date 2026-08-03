@@ -5,6 +5,7 @@
  */
 
 import type { PosterTemplateId } from "@/lib/qr/poster-settings";
+import { BRAND } from "@/config/brand";
 
 export type PosterComposeInput = {
   displayName: string;
@@ -514,8 +515,8 @@ export async function composePosterPng(
   const footer =
     input.displayName?.trim() ||
     input.campaignName?.trim() ||
-    "Powered by Adsngrow";
-  ctx.fillText(`Powered by Adsngrow · ${footer.slice(0, 40)}`, cx, stripY + 18);
+    BRAND.poweredBy;
+  ctx.fillText(`${BRAND.poweredBy} · ${footer.slice(0, 40)}`, cx, stripY + 18);
 
   return canvas.toDataURL("image/png");
 }

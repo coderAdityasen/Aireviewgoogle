@@ -1,5 +1,6 @@
 import { AuthForm } from "@/features/auth/components/auth-form";
 import { BrandMark } from "@/components/layout/brand-mark";
+import { PoweredBy } from "@/components/layout/powered-by";
 import {
   Card,
   CardContent,
@@ -23,6 +24,7 @@ export default function ForgotPasswordPage() {
           <AuthForm mode="forgot" />
         </CardContent>
       </Card>
+      <PoweredBy className="mt-8" />
     </main>
   );
 }

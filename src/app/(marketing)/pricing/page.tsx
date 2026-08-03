@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MarketingHeader } from "@/components/layout/marketing-header";
+import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { PlanSelection } from "@/components/billing/plan-selection";
 import { getCurrentUser } from "@/lib/auth/roles";
 import { redirect } from "next/navigation";
@@ -39,6 +40,7 @@ export default async function PricingPage() {
           </Link>
         </p>
       </main>
+      <MarketingFooter />
     </>
   );
 }

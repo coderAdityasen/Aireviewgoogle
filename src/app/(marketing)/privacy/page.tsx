@@ -1,4 +1,5 @@
 import { MarketingHeader } from "@/components/layout/marketing-header";
+import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export default function PrivacyPage() {
   return (
@@ -13,6 +14,7 @@ export default function PrivacyPage() {
           <p>Business owners can delete feedback from their dashboard, and admins can process deletion requests through audit-backed workflows.</p>
         </div>
       </main>
+      <MarketingFooter />
     </>
   );
 }

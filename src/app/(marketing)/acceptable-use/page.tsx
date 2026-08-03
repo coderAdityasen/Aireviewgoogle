@@ -1,4 +1,5 @@
 import { MarketingHeader } from "@/components/layout/marketing-header";
+import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export default function AcceptableUsePage() {
   return (
@@ -13,6 +14,7 @@ export default function AcceptableUsePage() {
           <p>Do not add fake facts, employee names, prices, timelines, service outcomes or artificial human signals.</p>
         </div>
       </main>
+      <MarketingFooter />
     </>
   );
 }

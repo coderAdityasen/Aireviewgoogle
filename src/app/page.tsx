@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { MarketingHeader } from "@/components/layout/marketing-header";
+import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BRAND } from "@/config/brand";
 import { getGrowthBillingOption, PLANS } from "@/config/plans";
 
 const growthYear = getGrowthBillingOption("12m")!;
@@ -154,7 +156,7 @@ export default function HomePage() {
                     Open Google review page
                   </div>
                   <p className="mt-3 text-center text-[11px] font-semibold text-slate-400">
-                    Powered by Adsngrow
+                    {BRAND.poweredBy}
                   </p>
                 </div>
               </div>
@@ -334,27 +336,7 @@ export default function HomePage() {
           </div>
         </section>
       </main>
-      <footer className="border-t border-border/70 bg-white px-4 py-10 sm:px-7">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 text-sm font-medium text-muted-foreground">
-          <div className="flex items-center gap-2.5">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-primary text-[11px] font-extrabold text-white">
-              R
-            </span>
-            <p>© 2026 ReviewFlow</p>
-          </div>
-          <div className="flex flex-wrap gap-5">
-            <Link className="cursor-pointer transition hover:text-foreground" href="/privacy">
-              Privacy
-            </Link>
-            <Link className="cursor-pointer transition hover:text-foreground" href="/terms">
-              Terms
-            </Link>
-            <Link className="cursor-pointer transition hover:text-foreground" href="/acceptable-use">
-              Acceptable use
-            </Link>
-          </div>
-        </div>
-      </footer>
+      <MarketingFooter />
     </>
   );
 }
