@@ -12,7 +12,12 @@ import { getOwnerBusinesses } from "@/features/businesses/server/queries";
 import { Icon } from "@/components/ui/icon";
 
 export default async function DashboardPage() {
-  const [metrics, owner, ownerBusinesses] = await Promise.all([getOwnerDashboardMetrics(), requirePaidOwner(), getOwnerBusinesses()]);
+  // requirePaidOwner + getOwnerBusinesses are React-cached with layout in the same request
+  const [metrics, owner, ownerBusinesses] = await Promise.all([
+    getOwnerDashboardMetrics(14, { includeRecentActivity: true }),
+    requirePaidOwner(),
+    getOwnerBusinesses(),
+  ]);
   const entitlements = owner.entitlements;
   const firstBusiness = ownerBusinesses[0];
 

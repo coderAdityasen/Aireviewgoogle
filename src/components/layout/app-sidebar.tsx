@@ -56,13 +56,16 @@ type BadgeKey = keyof DashboardNavCounts;
 export function AppSidebar({
   mode,
   planKey,
-  navCounts,
+  navCounts: initialNavCounts,
+  deferNavCounts = false,
   account,
 }: {
   mode: "owner" | "admin";
   planKey?: string | null;
   privateFeedback?: boolean;
   navCounts?: DashboardNavCounts;
+  /** Fetch badge counts after paint (faster server navigations). */
+  deferNavCounts?: boolean;
   account?: { name?: string | null; email?: string | null };
 }) {
   const pathname = usePathname();
@@ -71,9 +74,37 @@ export function AppSidebar({
   const [mounted, setMounted] = useState(false);
   /** True after mount so CSS can transition from off-screen → on */
   const [entered, setEntered] = useState(false);
+  const [navCounts, setNavCounts] = useState<DashboardNavCounts | undefined>(
+    initialNavCounts,
+  );
   const workspaceNav = mode === "owner" ? ownerWorkspaceNav : adminNav;
   const accountNav = mode === "owner" ? ownerAccountNav : [];
   void planKey;
+
+  // Defer badge counts so layout/page navigations aren't blocked on heavy queries
+  useEffect(() => {
+    if (mode !== "owner" || !deferNavCounts) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    void fetch("/api/dashboard/nav-counts", {
+      signal: controller.signal,
+      credentials: "same-origin",
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (cancelled || !json) return;
+        setNavCounts({
+          reviews: Number(json.reviews) || 0,
+          privateFeedback: Number(json.privateFeedback) || 0,
+          gmbSuggestions: Number(json.gmbSuggestions) || 0,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [mode, deferNavCounts, pathname]);
 
   // Open / close mount lifecycle for enter + exit animation
   useEffect(() => {

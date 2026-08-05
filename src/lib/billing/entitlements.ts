@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -10,7 +11,13 @@ import {
   type PlanConfig,
   type PlanKey,
 } from "@/config/plans";
-import { requireUser } from "@/lib/auth/roles";
+import { getCurrentProfile, requireUser } from "@/lib/auth/roles";
+import {
+  BILLING_CACHE_REVALIDATE_SECONDS,
+  ownerBillingTag,
+  ownerEntitlementsTag,
+  revalidateOwnerAccess,
+} from "@/lib/billing/cache";
 
 export const PAID_SUBSCRIPTION_STATUSES = [
   "active",
@@ -68,7 +75,7 @@ const SUBSCRIPTION_COLUMNS =
 const LIFETIME_PERIOD_START = "1970-01-01T00:00:00.000Z";
 const LIFETIME_PERIOD_END = "2099-12-31T00:00:00.000Z";
 
-export const getOwnerSubscription = cache(async (ownerId: string) => {
+async function fetchOwnerSubscription(ownerId: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("subscriptions")
@@ -79,9 +86,21 @@ export const getOwnerSubscription = cache(async (ownerId: string) => {
     .maybeSingle();
   if (error) throw error;
   return (data as OwnerSubscription | null) ?? null;
+}
+
+/** Per-request dedupe + short cross-request cache (billing status). */
+export const getOwnerSubscription = cache(async (ownerId: string) => {
+  return unstable_cache(
+    () => fetchOwnerSubscription(ownerId),
+    [`owner-subscription-${ownerId}`],
+    {
+      revalidate: BILLING_CACHE_REVALIDATE_SECONDS,
+      tags: [ownerBillingTag(ownerId)],
+    },
+  )();
 });
 
-async function getProfileTrial(ownerId: string) {
+async function fetchProfileTrial(ownerId: string) {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("profiles")
@@ -98,6 +117,17 @@ async function getProfileTrial(ownerId: string) {
     trialEndsAt && new Date(trialEndsAt).getTime() <= Date.now(),
   );
   return { trialEndsAt, trialActive, trialExpired };
+}
+
+async function getProfileTrial(ownerId: string) {
+  return unstable_cache(
+    () => fetchProfileTrial(ownerId),
+    [`owner-trial-${ownerId}`],
+    {
+      revalidate: BILLING_CACHE_REVALIDATE_SECONDS,
+      tags: [ownerBillingTag(ownerId)],
+    },
+  )();
 }
 
 function subscriptionIsActive(subscription: OwnerSubscription | null) {
@@ -183,140 +213,165 @@ async function getReviewRequestCount(ownerId: string) {
   return count ?? 0;
 }
 
+async function loadOwnerEntitlements(
+  ownerId: string,
+): Promise<OwnerEntitlements> {
+  const subscription = await getOwnerSubscription(ownerId);
+  const admin = createAdminClient();
+  const [
+    { trialEndsAt, trialActive, trialExpired },
+    overrideResult,
+    businessResult,
+    qrResult,
+  ] = await Promise.all([
+    getProfileTrial(ownerId),
+    admin
+      .from("entitlement_overrides")
+      .select("plan_key, expires_at")
+      .eq("owner_id", ownerId)
+      .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from("businesses")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", ownerId),
+    admin
+      .from("qr_campaigns")
+      .select("id, businesses!inner(owner_id)", {
+        count: "exact",
+        head: true,
+      })
+      .eq("businesses.owner_id", ownerId),
+  ]);
+
+  if (overrideResult.error) throw overrideResult.error;
+  if (businessResult.error) throw businessResult.error;
+  if (qrResult.error) throw qrResult.error;
+
+  const override = overrideResult.data as {
+    plan_key?: string;
+    expires_at: string | null;
+  } | null;
+
+  const subscriptionPaid = subscriptionIsActive(subscription);
+  const overridePaid = Boolean(override);
+
+  // Once a paid plan (or admin override) is active, trial must not override
+  // access dates / plan UI — even if trial_ends_at is still in the future.
+  const trialStillOpen = trialActive;
+  const onTrialOnly = trialStillOpen && !subscriptionPaid && !overridePaid;
+
+  let plan: PlanConfig;
+  if (subscriptionPaid && subscription?.plan_key) {
+    plan = getPlan(subscription.plan_key) ?? PLANS.starter;
+  } else if (overridePaid && override?.plan_key) {
+    plan = getPlan(override.plan_key) ?? PLANS.starter;
+  } else if (onTrialOnly) {
+    plan = PLANS.starter;
+  } else {
+    plan = PLANS.starter;
+  }
+
+  const paid = subscriptionPaid || overridePaid || onTrialOnly;
+
+  const periodStart =
+    subscriptionPaid && subscription?.current_period_start
+      ? subscription.current_period_start
+      : (subscription?.current_period_start ??
+        (trialEndsAt
+          ? new Date(
+              new Date(trialEndsAt).getTime() - 7 * 24 * 60 * 60 * 1000,
+            ).toISOString()
+          : new Date(
+              new Date().getFullYear(),
+              new Date().getMonth(),
+              1,
+            ).toISOString()));
+  const periodEnd =
+    subscriptionPaid &&
+    (subscription?.current_period_end || subscription?.access_until)
+      ? (subscription.current_period_end ?? subscription.access_until!)
+      : (subscription?.current_period_end ??
+        trialEndsAt ??
+        new Date(
+          new Date().getFullYear(),
+          new Date().getMonth() + 1,
+          1,
+        ).toISOString());
+
+  const [aiGenerations, reviewRequests] = await Promise.all([
+    getRegenerationUsageCount(ownerId, plan, periodStart),
+    getReviewRequestCount(ownerId),
+  ]);
+
+  const aiRemaining = isUnlimited(plan.aiGenerations)
+    ? null
+    : Math.max(0, plan.aiGenerations - aiGenerations);
+  const reviewRequestsRemaining = isUnlimited(plan.reviewRequests)
+    ? null
+    : Math.max(0, plan.reviewRequests - reviewRequests);
+
+  return {
+    paid,
+    plan,
+    subscription,
+    usage: {
+      businesses: businessResult.count ?? 0,
+      qrCampaigns: qrResult.count ?? 0,
+      aiGenerations,
+      reviewRequests,
+    },
+    periodStart,
+    periodEnd,
+    trialEndsAt,
+    trialActive: onTrialOnly,
+    trialExpired: trialExpired && !subscriptionPaid && !overridePaid,
+    privateFeedback: plan.privateFeedback,
+    reviewsLimit: plan.reviewsLimit,
+    gmbSuggestions: Boolean(plan.gmbSuggestions),
+    aiRemaining,
+    reviewRequestsRemaining,
+  };
+}
+
+/** Per-request dedupe + ~45s cross-request cache for snappier navigations. */
 export const getOwnerEntitlements = cache(
   async (ownerId: string): Promise<OwnerEntitlements> => {
-    const subscription = await getOwnerSubscription(ownerId);
-    const admin = createAdminClient();
-    const [
-      { trialEndsAt, trialActive, trialExpired },
-      overrideResult,
-      businessResult,
-      qrResult,
-    ] = await Promise.all([
-      getProfileTrial(ownerId),
-      admin
-        .from("entitlement_overrides")
-        .select("plan_key, expires_at")
-        .eq("owner_id", ownerId)
-        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-        .limit(1)
-        .maybeSingle(),
-      admin
-        .from("businesses")
-        .select("id", { count: "exact", head: true })
-        .eq("owner_id", ownerId),
-      admin
-        .from("qr_campaigns")
-        .select("id, businesses!inner(owner_id)", {
-          count: "exact",
-          head: true,
-        })
-        .eq("businesses.owner_id", ownerId),
-    ]);
-
-    if (overrideResult.error) throw overrideResult.error;
-    if (businessResult.error) throw businessResult.error;
-    if (qrResult.error) throw qrResult.error;
-
-    const override = overrideResult.data as {
-      plan_key?: string;
-      expires_at: string | null;
-    } | null;
-
-    const subscriptionPaid = subscriptionIsActive(subscription);
-    const overridePaid = Boolean(override);
-
-    // Once a paid plan (or admin override) is active, trial must not override
-    // access dates / plan UI — even if trial_ends_at is still in the future.
-    const trialStillOpen = trialActive;
-    const onTrialOnly =
-      trialStillOpen && !subscriptionPaid && !overridePaid;
-
-    let plan: PlanConfig;
-    if (subscriptionPaid && subscription?.plan_key) {
-      plan = getPlan(subscription.plan_key) ?? PLANS.starter;
-    } else if (overridePaid && override?.plan_key) {
-      plan = getPlan(override.plan_key) ?? PLANS.starter;
-    } else if (onTrialOnly) {
-      plan = PLANS.starter;
-    } else {
-      plan = PLANS.starter;
-    }
-
-    const paid = subscriptionPaid || overridePaid || onTrialOnly;
-
-    const periodStart =
-      subscriptionPaid && subscription?.current_period_start
-        ? subscription.current_period_start
-        : subscription?.current_period_start ??
-          (trialEndsAt
-            ? new Date(
-                new Date(trialEndsAt).getTime() - 7 * 24 * 60 * 60 * 1000,
-              ).toISOString()
-            : new Date(
-                new Date().getFullYear(),
-                new Date().getMonth(),
-                1,
-              ).toISOString());
-    const periodEnd =
-      subscriptionPaid &&
-      (subscription?.current_period_end || subscription?.access_until)
-        ? (subscription.current_period_end ?? subscription.access_until!)
-        : subscription?.current_period_end ??
-          trialEndsAt ??
-          new Date(
-            new Date().getFullYear(),
-            new Date().getMonth() + 1,
-            1,
-          ).toISOString();
-
-    const [aiGenerations, reviewRequests] = await Promise.all([
-      getRegenerationUsageCount(ownerId, plan, periodStart),
-      getReviewRequestCount(ownerId),
-    ]);
-
-    const aiRemaining = isUnlimited(plan.aiGenerations)
-      ? null
-      : Math.max(0, plan.aiGenerations - aiGenerations);
-    const reviewRequestsRemaining = isUnlimited(plan.reviewRequests)
-      ? null
-      : Math.max(0, plan.reviewRequests - reviewRequests);
-
-    return {
-      paid,
-      plan,
-      subscription,
-      usage: {
-        businesses: businessResult.count ?? 0,
-        qrCampaigns: qrResult.count ?? 0,
-        aiGenerations,
-        reviewRequests,
+    return unstable_cache(
+      () => loadOwnerEntitlements(ownerId),
+      [`owner-entitlements-${ownerId}`],
+      {
+        revalidate: BILLING_CACHE_REVALIDATE_SECONDS,
+        tags: [ownerEntitlementsTag(ownerId), ownerBillingTag(ownerId)],
       },
-      periodStart,
-      periodEnd,
-      trialEndsAt,
-      // Expose trial as active only when it is still the source of access.
-      trialActive: onTrialOnly,
-      trialExpired: trialExpired && !subscriptionPaid && !overridePaid,
-      privateFeedback: plan.privateFeedback,
-      reviewsLimit: plan.reviewsLimit,
-      gmbSuggestions: Boolean(plan.gmbSuggestions),
-      aiRemaining,
-      reviewRequestsRemaining,
-    };
+    )();
   },
 );
 
+/**
+ * Gate dashboard access. Reuses React cache + short-lived entitlements cache.
+ * Profile comes from getCurrentProfile when possible to avoid an extra admin round-trip.
+ */
 export const requirePaidOwner = cache(async () => {
   const user = await requireUser();
-  const admin = createAdminClient();
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("id, full_name, role, account_status, trial_ends_at")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (!profile || profile.account_status !== "active")
+  let profile = await getCurrentProfile();
+
+  if (!profile || profile.account_status !== "active") {
+    // Fallback admin read if profile row missing from user-scoped client
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("profiles")
+      .select("id, full_name, role, account_status, trial_ends_at, created_at, updated_at")
+      .eq("id", user.id)
+      .maybeSingle();
+    profile = data as typeof profile;
+  }
+
+  if (!profile || profile.account_status !== "active") {
     redirectBilling("suspended=1");
+  }
+
   const entitlements = await getOwnerEntitlements(user.id);
   if (profile.role !== "admin" && !entitlements.paid) {
     if (entitlements.trialExpired) redirectBilling("trial=expired");
@@ -324,6 +379,11 @@ export const requirePaidOwner = cache(async () => {
   }
   return { user, profile, entitlements };
 });
+
+/** Bust short-lived caches after usage that affects meters (AI, etc.). */
+export function bustOwnerEntitlementsCache(ownerId: string) {
+  revalidateOwnerAccess(ownerId);
+}
 
 export async function assertBusinessLimit(ownerId: string) {
   const entitlements = await getOwnerEntitlements(ownerId);
@@ -459,6 +519,7 @@ export async function recordUsage(
     });
     if (error) throw error;
   }
+  bustOwnerEntitlementsCache(ownerId);
 }
 
 function redirectBilling(query: string): never {

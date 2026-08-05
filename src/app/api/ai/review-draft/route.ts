@@ -9,9 +9,11 @@ import { assertRateLimit, RateLimitError } from "@/lib/security/rate-limit";
 import {
   assertAiUsageLimit,
   assertReviewRequestLimit,
+  bustOwnerEntitlementsCache,
   recordUsage,
   type OwnerEntitlements,
 } from "@/lib/billing/entitlements";
+import { revalidateOwnerAccess } from "@/lib/billing/cache";
 import { instructionsForRating, parseReviewResponseSettings, ratingRuleFor } from "@/lib/feedback/response-settings";
 
 export async function POST(request: NextRequest) {
@@ -184,6 +186,10 @@ export async function POST(request: NextRequest) {
   // Review requests are counted via customer_feedback rows (this insert above).
   if (isRegenerate) {
     await recordUsage(business.owner_id, "ai_generation");
+  } else {
+    // Review-request meter changed — refresh short-lived caches
+    bustOwnerEntitlementsCache(business.owner_id);
+    revalidateOwnerAccess(business.owner_id);
   }
 
   const regenLimit = entitlementsBefore.plan.aiGenerations;

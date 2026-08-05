@@ -13,6 +13,7 @@ export function AppShell({
   planKey,
   privateFeedback = true,
   navCounts,
+  deferNavCounts = false,
 }: {
   children: React.ReactNode;
   mode: "owner" | "admin";
@@ -22,6 +23,8 @@ export function AppShell({
   planKey?: PlanKey | null;
   privateFeedback?: boolean;
   navCounts?: DashboardNavCounts;
+  /** When true, sidebar fetches badge counts after mount (faster navigations). */
+  deferNavCounts?: boolean;
 }) {
   return (
     <div className="min-h-screen overflow-x-clip">
@@ -30,6 +33,7 @@ export function AppShell({
         planKey={planKey}
         privateFeedback={privateFeedback}
         navCounts={navCounts}
+        deferNavCounts={deferNavCounts}
         account={account}
       />
       <div className="min-w-0 lg:pl-[252px]">
@@ -40,7 +44,8 @@ export function AppShell({
             businesses={businesses}
             account={account}
           />
-          <div className="animate-fade-up">{children}</div>
+          {/* Lighter enter motion so route switches feel snappier */}
+          <div className="motion-safe:animate-fade-up">{children}</div>
         </main>
       </div>
     </div>

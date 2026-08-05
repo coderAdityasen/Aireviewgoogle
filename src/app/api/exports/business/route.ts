@@ -5,6 +5,9 @@ import { assertCsvExportAccess, recordUsage } from "@/lib/billing/entitlements";
 import { getCurrentUser } from "@/lib/auth/roles";
 import { formatReviewDisplayText } from "@/features/ai/server/prompt";
 
+/** Hard cap so a busy location cannot OOM or timeout the export route. */
+const EXPORT_ROW_LIMIT = 5000;
+
 function csvEscape(value: unknown) {
   const text = value === null || value === undefined ? "" : String(value);
   return `"${text.replace(/"/g, '""')}"`;
@@ -16,14 +19,32 @@ export async function GET(request: NextRequest) {
 
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Sign in required." }, { status: 401 });
-  try { await assertCsvExportAccess(user.id); } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "CSV export is unavailable." }, { status: 402 }); }
+  try {
+    await assertCsvExportAccess(user.id);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "CSV export is unavailable." },
+      { status: 402 }
+    );
+  }
 
   const business = await getOwnerBusiness(businessId);
   const supabase = await createClient();
-  const [{ data: events, error: eventsError }, { data: feedback, error: feedbackError }] = await Promise.all([
-    supabase.from("analytics_events").select("*").eq("business_id", businessId).order("created_at", { ascending: false }),
-    supabase.from("customer_feedback").select("*").eq("business_id", businessId).order("created_at", { ascending: false })
-  ]);
+  const [{ data: events, error: eventsError }, { data: feedback, error: feedbackError }] =
+    await Promise.all([
+      supabase
+        .from("analytics_events")
+        .select("created_at, event_type")
+        .eq("business_id", businessId)
+        .order("created_at", { ascending: false })
+        .limit(EXPORT_ROW_LIMIT),
+      supabase
+        .from("customer_feedback")
+        .select("created_at, rating, original_notes, final_edited_text, generated_draft")
+        .eq("business_id", businessId)
+        .order("created_at", { ascending: false })
+        .limit(EXPORT_ROW_LIMIT)
+    ]);
   if (eventsError) throw eventsError;
   if (feedbackError) throw feedbackError;
 
@@ -40,7 +61,7 @@ export async function GET(request: NextRequest) {
         finalEditedText: row.final_edited_text,
         generatedDraft: row.generated_draft,
         originalNotes: row.original_notes,
-        firstOnly: true,
+        firstOnly: true
       })
     ])
   ];

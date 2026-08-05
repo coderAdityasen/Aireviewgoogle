@@ -1,9 +1,12 @@
 import { AppShell } from "@/components/layout/app-shell";
 import { getOwnerBusinesses } from "@/features/businesses/server/queries";
-import { getDashboardNavCounts } from "@/features/businesses/server/gmb-actions";
-import { getCurrentProfile } from "@/lib/auth/roles";
 import { requirePaidOwner } from "@/lib/billing/entitlements";
 
+/**
+ * Dashboard chrome. Kept lean on purpose:
+ * - paid gate + profile + businesses only
+ * - nav badge counts load client-side after paint (see AppSidebar)
+ */
 export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({
@@ -11,14 +14,9 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, entitlements } = await requirePaidOwner();
-  const [businesses, profile, navCounts] = await Promise.all([
-    getOwnerBusinesses(),
-    getCurrentProfile(),
-    getDashboardNavCounts(user.id),
-  ]);
-
-  // GMB suggestions stay empty until the user clicks Generate on the GMB page.
+  // Single paid gate — React cache() shares this with page-level requirePaidOwner.
+  const { profile, entitlements, user } = await requirePaidOwner();
+  const businesses = await getOwnerBusinesses();
 
   return (
     <AppShell
@@ -28,7 +26,8 @@ export default async function DashboardLayout({
       account={{ name: profile?.full_name, email: user?.email }}
       planKey={entitlements.plan.key}
       privateFeedback={entitlements.privateFeedback}
-      navCounts={navCounts}
+      // Badges deferred → faster first paint / navigation
+      deferNavCounts
     >
       {children}
     </AppShell>

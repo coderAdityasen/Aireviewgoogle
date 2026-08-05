@@ -37,38 +37,38 @@ export default async function BusinessesPage() {
     );
   }
 
-  const businessIds = businesses.map((business) => business.id);
   const supabase = await createClient();
 
-  const [{ data: scanRows }, { data: reviewRows }] = await Promise.all([
-    supabase
-      .from("analytics_events")
-      .select("business_id")
-      .eq("event_type", "qr_scan")
-      .in("business_id", businessIds),
-    supabase
-      .from("customer_feedback")
-      .select("business_id")
-      .eq("submitted_privately", false)
-      .eq("continued_to_google", true)
-      .in("business_id", businessIds),
+  // Exact head counts per location — avoids loading every analytics row (and
+  // PostgREST row caps that silently undercount at scale).
+  const [scanCounts, reviewCounts] = await Promise.all([
+    Promise.all(
+      businesses.map(async (business) => {
+        const { count, error } = await supabase
+          .from("analytics_events")
+          .select("id", { count: "exact", head: true })
+          .eq("event_type", "qr_scan")
+          .eq("business_id", business.id);
+        if (error) throw error;
+        return [business.id, count ?? 0] as const;
+      }),
+    ),
+    Promise.all(
+      businesses.map(async (business) => {
+        const { count, error } = await supabase
+          .from("customer_feedback")
+          .select("id", { count: "exact", head: true })
+          .eq("submitted_privately", false)
+          .eq("continued_to_google", true)
+          .eq("business_id", business.id);
+        if (error) throw error;
+        return [business.id, count ?? 0] as const;
+      }),
+    ),
   ]);
 
-  const scansByBusiness = new Map<string, number>();
-  const reviewsByBusiness = new Map<string, number>();
-
-  for (const row of scanRows ?? []) {
-    scansByBusiness.set(
-      row.business_id,
-      (scansByBusiness.get(row.business_id) ?? 0) + 1,
-    );
-  }
-  for (const row of reviewRows ?? []) {
-    reviewsByBusiness.set(
-      row.business_id,
-      (reviewsByBusiness.get(row.business_id) ?? 0) + 1,
-    );
-  }
+  const scansByBusiness = new Map(scanCounts);
+  const reviewsByBusiness = new Map(reviewCounts);
 
   return (
     <div className="space-y-8">

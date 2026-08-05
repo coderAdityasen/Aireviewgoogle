@@ -254,46 +254,60 @@ export type DashboardNavCounts = {
   gmbSuggestions: number;
 };
 
-/** Counts for sidebar badges (reviews, private feedback, GMB). */
+/** Counts for sidebar badges (reviews, private feedback, GMB). Cached ~45s. */
 export async function getDashboardNavCounts(
   ownerId: string,
 ): Promise<DashboardNavCounts> {
-  const admin = createAdminClient();
+  const { unstable_cache } = await import("next/cache");
+  const { BILLING_CACHE_REVALIDATE_SECONDS, ownerNavTag } = await import(
+    "@/lib/billing/cache"
+  );
 
-  const { data: businesses, error: businessError } = await admin
-    .from("businesses")
-    .select("id")
-    .eq("owner_id", ownerId);
+  return unstable_cache(
+    async () => {
+      const admin = createAdminClient();
 
-  if (businessError) throw businessError;
-  const businessIds = (businesses ?? []).map((b) => b.id);
+      const { data: businesses, error: businessError } = await admin
+        .from("businesses")
+        .select("id")
+        .eq("owner_id", ownerId);
 
-  if (!businessIds.length) {
-    return { reviews: 0, privateFeedback: 0, gmbSuggestions: 0 };
-  }
+      if (businessError) throw businessError;
+      const businessIds = (businesses ?? []).map((b) => b.id);
 
-  const [reviewsResult, privateResult, gmbCount] = await Promise.all([
-    admin
-      .from("customer_feedback")
-      .select("id", { count: "exact", head: true })
-      .in("business_id", businessIds)
-      .eq("submitted_privately", false)
-      .eq("continued_to_google", true)
-      .not("final_edited_text", "is", null),
-    admin
-      .from("customer_feedback")
-      .select("id", { count: "exact", head: true })
-      .in("business_id", businessIds)
-      .eq("submitted_privately", true),
-    getOwnerGmbSuggestionCount(ownerId),
-  ]);
+      if (!businessIds.length) {
+        return { reviews: 0, privateFeedback: 0, gmbSuggestions: 0 };
+      }
 
-  if (reviewsResult.error) throw reviewsResult.error;
-  if (privateResult.error) throw privateResult.error;
+      const [reviewsResult, privateResult, gmbCount] = await Promise.all([
+        admin
+          .from("customer_feedback")
+          .select("id", { count: "exact", head: true })
+          .in("business_id", businessIds)
+          .eq("submitted_privately", false)
+          .eq("continued_to_google", true)
+          .not("final_edited_text", "is", null),
+        admin
+          .from("customer_feedback")
+          .select("id", { count: "exact", head: true })
+          .in("business_id", businessIds)
+          .eq("submitted_privately", true),
+        getOwnerGmbSuggestionCount(ownerId),
+      ]);
 
-  return {
-    reviews: reviewsResult.count ?? 0,
-    privateFeedback: privateResult.count ?? 0,
-    gmbSuggestions: gmbCount,
-  };
+      if (reviewsResult.error) throw reviewsResult.error;
+      if (privateResult.error) throw privateResult.error;
+
+      return {
+        reviews: reviewsResult.count ?? 0,
+        privateFeedback: privateResult.count ?? 0,
+        gmbSuggestions: gmbCount,
+      };
+    },
+    [`owner-nav-counts-${ownerId}`],
+    {
+      revalidate: BILLING_CACHE_REVALIDATE_SECONDS,
+      tags: [ownerNavTag(ownerId)],
+    },
+  )();
 }

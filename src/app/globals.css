@@ -234,7 +234,13 @@ details[open] > summary {
 }
 
 .animate-fade-up {
-  animation: fade-up 0.45s ease-out both;
+  animation: fade-up 0.22s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up {
+    animation: none;
+  }
 }
 
 /* Multi-agent orchestration visuals (GMB analysis) */

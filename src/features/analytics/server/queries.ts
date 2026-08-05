@@ -23,20 +23,56 @@ const summarySchema = z.object({
   average_rating: z.number(),
   private_feedback_count: z.number(),
   activity: z.array(z.object({ day: z.string(), scans: z.number(), redirects: z.number() })),
-  by_device: z.array(z.object({ device: z.string(), count: z.number() }))
+  by_device: z.array(z.object({ device: z.string(), count: z.number() })).optional()
 });
 
-export async function getOwnerDashboardMetrics(days = 14) {
+type OwnerMetricsOptions = {
+  /** When true, also loads the last few events for the activity feed. Default false. */
+  includeRecentActivity?: boolean;
+};
+
+async function fetchOwnerSummary(days: number, businessId: string | null = null) {
   const supabase = await createClient();
   const since = subDays(new Date(), days).toISOString();
-  const [{ data, error }, { data: recentData, error: recentError }] = await Promise.all([
-    supabase.rpc("get_owner_analytics_summary", { p_since: since, p_business_id: null, p_days: days }),
-    supabase.from("analytics_events").select("event_type, created_at, businesses(name)").order("created_at", { ascending: false }).limit(8)
-  ]);
+  const { data, error } = await supabase.rpc("get_owner_analytics_summary", {
+    p_since: since,
+    p_business_id: businessId,
+    p_days: days
+  });
   if (error) throw error;
-  if (recentError) throw recentError;
+  return summarySchema.parse(data);
+}
 
-  const summary = summarySchema.parse(data);
+async function fetchRecentOwnerActivity(limit = 8) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("analytics_events")
+    .select("event_type, created_at, businesses(name)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+
+  return ((data ?? []) as Array<{
+    event_type: string;
+    created_at: string;
+    businesses?: { name?: string } | Array<{ name?: string }>;
+  }>).map((event) => ({
+    eventType: event.event_type,
+    createdAt: event.created_at,
+    businessName: Array.isArray(event.businesses)
+      ? event.businesses[0]?.name ?? "Location"
+      : event.businesses?.name ?? "Location"
+  }));
+}
+
+export async function getOwnerDashboardMetrics(days = 14, options: OwnerMetricsOptions = {}) {
+  const includeRecentActivity = options.includeRecentActivity ?? false;
+
+  const [summary, recentActivity] = await Promise.all([
+    fetchOwnerSummary(days, null),
+    includeRecentActivity ? fetchRecentOwnerActivity(8) : Promise.resolve([])
+  ]);
+
   const counts = summary.counts;
   return {
     businesses: summary.businesses,
@@ -46,22 +82,13 @@ export async function getOwnerDashboardMetrics(days = 14) {
     activity: summary.activity,
     averageRating: summary.average_rating,
     privateFeedbackCount: summary.private_feedback_count,
-    recentActivity: ((recentData ?? []) as Array<{ event_type: string; created_at: string; businesses?: { name?: string } | Array<{ name?: string }> }>).map((event) => ({
-      eventType: event.event_type,
-      createdAt: event.created_at,
-      businessName: Array.isArray(event.businesses) ? event.businesses[0]?.name ?? "Location" : event.businesses?.name ?? "Location"
-    }))
+    recentActivity
   };
 }
 
 export async function getBusinessAnalytics(businessId: string, days = 30) {
   await getOwnerBusiness(businessId);
-  const supabase = await createClient();
-  const since = subDays(new Date(), days).toISOString();
-  const { data, error } = await supabase.rpc("get_owner_analytics_summary", { p_since: since, p_business_id: businessId, p_days: days });
-  if (error) throw error;
-
-  const summary = summarySchema.parse(data);
+  const summary = await fetchOwnerSummary(days, businessId);
   const counts = summary.counts;
   return {
     counts,
@@ -71,7 +98,6 @@ export async function getBusinessAnalytics(businessId: string, days = 30) {
     scanToCopy: computeConversionRate(counts.review_copied, counts.qr_scan),
     scanToRedirect: computeConversionRate(counts.google_redirect_clicked, counts.qr_scan),
     copyToRedirect: computeConversionRate(counts.google_redirect_clicked, counts.review_copied),
-    activity: summary.activity,
-    byDevice: summary.by_device
+    activity: summary.activity
   };
 }

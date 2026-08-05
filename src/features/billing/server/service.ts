@@ -6,6 +6,7 @@ import {
   getBillingProvider,
   type ProviderOrder,
 } from "@/lib/billing/provider";
+import { revalidateOwnerAccess } from "@/lib/billing/cache";
 import {
   addMonths,
   getGrowthBillingOption,
@@ -154,6 +155,7 @@ export async function verifyCheckoutAndPersist(input: {
     { onConflict: "provider_payment_id" },
   );
   if (error) throw error;
+  revalidateOwnerAccess(input.ownerId);
   return subscription;
 }
 
@@ -191,6 +193,7 @@ export async function cancelOwnerSubscription(
       .select("*")
       .single();
     if (updateError) throw updateError;
+    revalidateOwnerAccess(ownerId);
     return data as Subscription;
   }
 
@@ -208,6 +211,7 @@ export async function cancelOwnerSubscription(
     .single();
   if (updateError) throw updateError;
   void accessUntil;
+  revalidateOwnerAccess(ownerId);
   return data as Subscription;
 }
 
