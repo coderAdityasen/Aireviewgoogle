@@ -82,12 +82,29 @@ export async function recordEvent(input: {
   eventType: AnalyticsEventType;
   metadata?: Record<string, unknown>;
 }) {
+  await recordEvents([input]);
+}
+
+/** Batch-insert analytics events in one round-trip. */
+export async function recordEvents(
+  events: Array<{
+    businessId: string;
+    campaignId?: string | null;
+    visitorSessionId?: string | null;
+    eventType: AnalyticsEventType;
+    metadata?: Record<string, unknown>;
+  }>,
+) {
+  if (!events.length) return;
   const admin = createAdminClient();
-  await admin.from("analytics_events").insert({
-    business_id: input.businessId,
-    qr_campaign_id: input.campaignId ?? null,
-    visitor_session_id: input.visitorSessionId ?? null,
-    event_type: input.eventType,
-    metadata: (input.metadata ?? {}) as never
-  });
+  const { error } = await admin.from("analytics_events").insert(
+    events.map((input) => ({
+      business_id: input.businessId,
+      qr_campaign_id: input.campaignId ?? null,
+      visitor_session_id: input.visitorSessionId ?? null,
+      event_type: input.eventType,
+      metadata: (input.metadata ?? {}) as never,
+    })),
+  );
+  if (error) throw error;
 }

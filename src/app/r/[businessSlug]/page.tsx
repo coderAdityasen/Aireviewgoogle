@@ -3,6 +3,7 @@ import { PublicFeedbackForm } from "@/features/feedback/components/public-feedba
 import { getPublicBusiness } from "@/features/feedback/server/public";
 import { normalizeRatingTags } from "@/lib/feedback/rating-tags";
 import { parseReviewResponseSettings } from "@/lib/feedback/response-settings";
+import { isSafeStoredGoogleUrl, normalizeGoogleReviewUrl } from "@/lib/security/google-url";
 
 export default async function PublicReviewPage({
   params,
@@ -37,6 +38,10 @@ export default async function PublicReviewPage({
   }
 
   const responseSettings = parseReviewResponseSettings(business.review_settings);
+  // Pre-normalize so the client can open Google without waiting on a redirect API.
+  const googleReviewUrl = isSafeStoredGoogleUrl(business.google_review_url)
+    ? normalizeGoogleReviewUrl(business.google_review_url)
+    : null;
 
   return (
     <main
@@ -57,6 +62,7 @@ export default async function PublicReviewPage({
               height={72}
               alt={`${business.name} logo`}
               className="mx-auto rounded-xl object-contain shadow-sm ring-1 ring-black/5"
+              priority
             />
           ) : (
             <div
@@ -79,6 +85,7 @@ export default async function PublicReviewPage({
         <PublicFeedbackForm
           business={business}
           campaignToken={campaign}
+          googleReviewUrl={googleReviewUrl}
           experienceTags={normalizeRatingTags(business.experience_tags)}
           defaultTone={responseSettings.tone}
           defaultReviewLength={responseSettings.reviewLength}

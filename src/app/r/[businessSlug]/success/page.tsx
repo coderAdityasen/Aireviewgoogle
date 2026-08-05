@@ -2,6 +2,9 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { PoweredBy } from "@/components/layout/powered-by";
 
+/** Static thank-you page — no auth/data, instant edge cache. */
+export const dynamic = "force-static";
+
 export default function ReviewSuccessPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center p-6 text-center">

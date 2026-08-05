@@ -59,20 +59,41 @@ function copyTextSync(text: string): boolean {
     const success = document.execCommand("copy");
     document.body.removeChild(textArea);
     return success;
-  } catch (err) {
+  } catch {
     return false;
   }
+}
+
+/** Fire-and-forget POST that still runs after navigation (beacon / keepalive). */
+function postKeepalive(url: string, body: string) {
+  try {
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      const ok = navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
+      if (ok) return;
+    }
+  } catch {
+    // Fall through to fetch
+  }
+  void fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+    keepalive: true,
+  }).catch(() => undefined);
 }
 
 export function PublicFeedbackForm({
   business,
   campaignToken,
+  googleReviewUrl = null,
   experienceTags = {},
   defaultTone = "friendly",
   defaultReviewLength = "standard",
 }: {
   business: Pick<Business, "name" | "slug" | "brand_color" | "default_language">;
   campaignToken?: string | null;
+  /** Pre-normalized Google review URL from the server (enables instant open). */
+  googleReviewUrl?: string | null;
   experienceTags?: RatingTagMap;
   defaultTone?: Tone;
   defaultReviewLength?: "short" | "standard" | "detailed";
@@ -153,8 +174,8 @@ export function PublicFeedbackForm({
   }, []);
 
   /**
-   * Stream review text into the textarea character-by-character so regeneration
-   * feels like a real AI write, not an instant swap.
+   * Stream review text into the textarea so generation feels alive —
+   * kept snappy so mobile users are not stuck waiting on the last step.
    */
   const streamDraftText = useCallback(async (fullText: string) => {
     streamAbortController.current?.abort();
@@ -164,9 +185,9 @@ export function PublicFeedbackForm({
     setStreaming(true);
     setSelectedDraft("");
 
-    // Brief "thinking" pause before characters appear.
+    // Short "thinking" pause before characters appear.
     await new Promise<void>((resolve) => {
-      const t = window.setTimeout(resolve, 450 + Math.floor(Math.random() * 350));
+      const t = window.setTimeout(resolve, 120 + Math.floor(Math.random() * 100));
       controller.signal.addEventListener("abort", () => {
         window.clearTimeout(t);
         resolve();
@@ -179,9 +200,9 @@ export function PublicFeedbackForm({
 
     const text = fullText.trim();
     let i = 0;
-    // Faster for long drafts so users are not waiting forever.
-    const chunkSize = text.length > 280 ? 3 : text.length > 140 ? 2 : 1;
-    const stepMs = 14 + Math.floor(Math.random() * 10);
+    // Larger chunks = faster finish on mobile (still looks typed).
+    const chunkSize = text.length > 220 ? 6 : text.length > 120 ? 4 : 2;
+    const stepMs = 8 + Math.floor(Math.random() * 6);
 
     await new Promise<void>((resolve) => {
       const tick = () => {
@@ -337,8 +358,8 @@ export function PublicFeedbackForm({
       streamAbortController.current?.abort();
       const thinkController = new AbortController();
       streamAbortController.current = thinkController;
-      // Fake thinking delay, then stream — feels like a real regenerate.
-      const delay = 500 + Math.floor(Math.random() * 500);
+      // Short thinking delay, then stream.
+      const delay = 160 + Math.floor(Math.random() * 140);
       window.setTimeout(() => {
         if (thinkController.signal.aborted) return;
         setGenerating(false);
@@ -392,43 +413,45 @@ export function PublicFeedbackForm({
 
   const copyAndContinueToGoogle = useCallback(async () => {
     if (!isGoogleEligible || selectedDraft.trim().length < 10 || !feedbackId) return;
-    
-    // 1. Show loading state on the current page immediately
+
     setOpeningGoogle(true);
 
     try {
-      // 2. Execute synchronous copy instantly
+      // 1) Copy instantly (sync — must stay in the user gesture path).
       const copiedToClipboard = copyTextSync(selectedDraft);
-
-      // 3. Await analytics record (Execution waits for this)
-      await fetch("/api/events/copy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedbackId, finalEditedText: selectedDraft }),
+      const payload = JSON.stringify({
+        feedbackId,
+        finalEditedText: selectedDraft,
       });
 
-      // 4. Await redirect URL (Execution waits for this)
-      const response = await fetch("/api/events/redirect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ feedbackId }),
-      });
-      const json = await response.json();
-      if (!response.ok) throw new Error(json.error ?? "Unable to open the Google review page.");
-
-      // 5. Redirect the current tab to Google when ALL execution is done
-      // We navigate the current tab because browsers block new tabs 
-      // opened after asynchronous network requests (popup blocker).
-      window.location.href = json.url;
-
-      if (!copiedToClipboard) {
-        toast.info("Copy the draft from this page before pasting in Google.");
+      // 2) Fast path: open Google immediately; track in background (keepalive).
+      if (googleReviewUrl) {
+        postKeepalive("/api/events/continue-google", payload);
+        if (!copiedToClipboard) {
+          toast.info("Copy the draft from this page before pasting in Google.");
+        }
+        window.location.assign(googleReviewUrl);
+        return;
       }
+
+      // 3) Fallback: single combined API (save + mark + events + URL).
+      const response = await fetch("/api/events/continue-google", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      });
+      const json = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !json.url) {
+        throw new Error(json.error ?? "Unable to open the Google review page.");
+      }
+      window.location.assign(json.url);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to open the Google review page.");
+      toast.error(
+        error instanceof Error ? error.message : "Unable to open the Google review page.",
+      );
       setOpeningGoogle(false);
     }
-  }, [isGoogleEligible, selectedDraft, feedbackId]);
+  }, [isGoogleEligible, selectedDraft, feedbackId, googleReviewUrl]);
 
   const submitPrivateFeedback = useCallback(async () => {
     if (!isLowRating || selectedDraft.trim().length < 10 || !feedbackId) return;
