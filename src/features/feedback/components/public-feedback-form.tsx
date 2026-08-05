@@ -7,9 +7,43 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { Business } from "@/types/database";
 import type { RatingTagMap } from "@/lib/feedback/rating-tags";
-import { BRAND } from "@/config/brand";
+import { PoweredBy } from "@/components/layout/powered-by";
 
 type Tone = "friendly" | "professional" | "warm" | "concise";
+
+/** Client-side guard: never show model JSON wrappers in the draft field. */
+function stripAccidentalJsonWrapper(value: string): string {
+  let text = value.replace(/\s+/g, " ").trim();
+  if (!text) return "";
+
+  // Full JSON document returned as a "draft"
+  if (
+    (text.startsWith("{") && text.includes('"')) ||
+    /"(?:reviews|review)"\s*:/i.test(text)
+  ) {
+    try {
+      const parsed = JSON.parse(text) as Record<string, unknown>;
+      const list =
+        parsed.reviews ?? parsed.review ?? parsed.drafts ?? parsed.options;
+      if (typeof list === "string") return list.trim();
+      if (Array.isArray(list) && typeof list[0] === "string") {
+        return String(list[0]).trim();
+      }
+    } catch {
+      // Fall through to regex cleanup
+    }
+    const m = text.match(/"(?:reviews|review)"\s*:\s*\[\s*"((?:\\.|[^"\\])*)"/i);
+    if (m?.[1]) {
+      return m[1].replace(/\\"/g, '"').replace(/\\n/g, " ").trim();
+    }
+    text = text
+      .replace(/^[\{\[]\s*"(?:reviews|review)"\s*:\s*\[\s*"/i, "")
+      .replace(/"\s*\]\s*\}?\s*$/, "")
+      .replace(/^["']|["']$/g, "")
+      .trim();
+  }
+  return text;
+}
 
 // Synchronous copy function that bypasses async Clipboard API permissions
 function copyTextSync(text: string): boolean {
@@ -251,7 +285,13 @@ export function PublicFeedbackForm({
       if (!response.ok) throw new Error(json.error ?? "Unable to generate a grounded review.");
       
       const nextDrafts = Array.isArray(json.drafts)
-        ? json.drafts.filter((draft: unknown): draft is string => typeof draft === "string" && draft.trim().length >= 10)
+        ? json.drafts
+            .filter(
+              (draft: unknown): draft is string =>
+                typeof draft === "string" && draft.trim().length >= 10,
+            )
+            .map((draft: string) => stripAccidentalJsonWrapper(draft))
+            .filter((draft: string) => draft.length >= 10)
         : [];
         
       if (!nextDrafts.length) throw new Error("No review draft was returned. Please try again.");
@@ -268,7 +308,7 @@ export function PublicFeedbackForm({
       }
 
       setGenerating(false);
-      // Stream the first option so it looks like live generation.
+      // Stream plain review text only (never raw model JSON).
       await streamDraftText(nextDrafts[0]);
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
@@ -667,8 +707,8 @@ export function PublicFeedbackForm({
           </div>
         ) : null}
       </div>
-      <footer className="border-t border-[#e7ecf3] bg-[#f8fafc] px-6 py-4 text-center text-[11px] font-semibold text-[#7a8ba3]">
-        {BRAND.poweredBy}
+      <footer className="border-t border-[#e7ecf3] bg-[#f8fafc] px-6 py-4">
+        <PoweredBy className="text-[#7a8ba3]" />
       </footer>
     </section>
   );

@@ -9,10 +9,12 @@ export const BRAND = {
   initial: "R",
   /** Lowercase slug for files */
   slug: "reviewflow",
-  /** Attribution only — auth, marketing footers, posters, public QR. */
-  poweredBy: "Powered by ADS N GROW media",
-  /** Company name without the "Powered by" prefix (posters that compose their own line). */
-  poweredByCompany: "ADS N GROW media",
+  /** Full attribution line (plain text — posters / canvas). */
+  poweredBy: "Powered by ADS N GROW MEDIA HOUSE",
+  /** Company name without the "Powered by" prefix. */
+  poweredByCompany: "ADS N GROW MEDIA HOUSE",
+  /** Public website — use for clickable attribution. */
+  poweredByUrl: "https://www.adsngrow.in",
   neverPosts: "ReviewFlow never posts a review for you.",
   description:
     "Collect genuine customer feedback through QR-powered review flows.",

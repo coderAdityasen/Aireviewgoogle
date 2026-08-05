@@ -561,8 +561,16 @@ export async function composePosterPng(
   const footer =
     input.displayName?.trim() ||
     input.campaignName?.trim() ||
-    BRAND.poweredBy;
-  ctx.fillText(`${BRAND.poweredBy} · ${footer.slice(0, 40)}`, cx, stripY + 18);
+    BRAND.poweredByCompany;
+  // Canvas can't be a hyperlink; show company + URL as plain text on print posters.
+  ctx.fillText(
+    `${BRAND.poweredBy} · ${BRAND.poweredByUrl.replace(/^https?:\/\//, "")}`,
+    cx,
+    stripY + 14,
+  );
+  if (footer && footer !== BRAND.poweredByCompany) {
+    ctx.fillText(footer.slice(0, 48), cx, stripY + 28);
+  }
 
   return canvas.toDataURL("image/png");
 }

@@ -7,7 +7,7 @@ type PoweredByProps = {
   light?: boolean;
 };
 
-/** Standard attribution line — use on auth screens and marketing footers. */
+/** Standard attribution line — clickable link to adsngrow.in */
 export function PoweredBy({ className, light = false }: PoweredByProps) {
   return (
     <p
@@ -17,7 +17,22 @@ export function PoweredBy({ className, light = false }: PoweredByProps) {
         className,
       )}
     >
-      {BRAND.poweredBy}
+      <span className={light ? "text-white/40" : "text-muted-foreground"}>
+        Powered by{" "}
+      </span>
+      <a
+        href={BRAND.poweredByUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(
+          "font-extrabold underline-offset-2 transition hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-sm",
+          light
+            ? "text-white/75 hover:text-white"
+            : "text-foreground/80 hover:text-primary",
+        )}
+      >
+        {BRAND.poweredByCompany}
+      </a>
     </p>
   );
 }

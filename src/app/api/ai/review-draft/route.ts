@@ -37,8 +37,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     await createAdminClient().from("ai_usage_logs").insert({
       business_id: business.id,
-      provider: process.env.OPENROUTER_API_KEY ? "openrouter" : "reviewflow",
-      model: process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? "unconfigured",
+      provider: process.env.GEMINI_API_KEY
+        ? "gemini"
+        : process.env.OPENROUTER_API_KEY
+          ? "openrouter"
+          : "reviewflow",
+      model:
+        process.env.GEMINI_MODEL ??
+        process.env.OPENROUTER_MODEL ??
+        process.env.AI_MODEL ??
+        "unconfigured",
       status: "blocked",
       error_message: error instanceof Error ? error.message : "Plan limit reached",
     });
@@ -109,8 +117,16 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     await admin.from("ai_usage_logs").insert({
       business_id: business.id,
-      provider: process.env.OPENROUTER_API_KEY ? "openrouter" : "reviewflow",
-      model: process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? "unknown",
+      provider: process.env.GEMINI_API_KEY
+        ? "gemini"
+        : process.env.OPENROUTER_API_KEY
+          ? "openrouter"
+          : "reviewflow",
+      model:
+        process.env.GEMINI_MODEL ??
+        process.env.OPENROUTER_MODEL ??
+        process.env.AI_MODEL ??
+        "unknown",
       status: "blocked",
       error_message: error instanceof Error ? error.message : "Grounding validation failed"
     });

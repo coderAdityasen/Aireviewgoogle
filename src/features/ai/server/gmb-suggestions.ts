@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  getAiProviderConfig,
+  runChatCompletion,
+} from "@/features/ai/server/ai-config";
+
 export type GmbSuggestion = {
   id: string;
   category:
@@ -91,7 +96,7 @@ export async function generateGmbFullAnalysis(
   const profileText = formatProfile(input);
   const config = getAiProviderConfig();
 
-  if (!config.apiKey || !config.model) {
+  if (!config.apiKey || config.provider === "none" || !config.model) {
     const suggestions = fallbackSuggestions(input);
     return {
       suggestions,
@@ -102,36 +107,14 @@ export async function generateGmbFullAnalysis(
   }
 
   try {
-    const response = await fetch(config.baseUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-        ...config.extraHeaders,
-      },
-      body: JSON.stringify({
-        model: config.model,
-        temperature: 0.35,
-        max_tokens: 2000,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Analyze this Google Business Profile snapshot. Return improvement suggestions AND projected growth impact together:\n\n${profileText}`,
-          },
-        ],
-      }),
+    const completion = await runChatCompletion(config, {
+      systemParts: [SYSTEM_PROMPT],
+      userText: `Analyze this Google Business Profile snapshot. Return improvement suggestions AND projected growth impact together:\n\n${profileText}`,
+      temperature: 0.35,
+      maxTokens: 2000,
+      jsonMode: true,
     });
-
-    if (!response.ok) {
-      throw new Error(`AI provider returned ${response.status}`);
-    }
-
-    const json = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    const content = json.choices?.[0]?.message?.content?.trim();
+    const content = completion.content.trim();
     if (!content) throw new Error("Empty AI response");
 
     const suggestions = parseSuggestions(content);
@@ -492,32 +475,4 @@ function fallbackImpactReport(suggestions: GmbSuggestion[]): GmbImpactReport {
   };
 }
 
-function getAiProviderConfig() {
-  const openRouterKey = process.env.OPENROUTER_API_KEY;
-  const apiKey = openRouterKey ?? process.env.AI_PROVIDER_API_KEY;
-  const usesOpenRouter = Boolean(openRouterKey);
-  const baseUrl =
-    process.env.OPENROUTER_BASE_URL ??
-    (usesOpenRouter
-      ? "https://openrouter.ai/api/v1/chat/completions"
-      : (process.env.AI_PROVIDER_BASE_URL ??
-        "https://api.openai.com/v1/chat/completions"));
-  const model = process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? "";
-  const extraHeaders: Record<string, string> = {};
 
-  if (usesOpenRouter) {
-    const referer =
-      process.env.OPENROUTER_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL;
-    const title = process.env.OPENROUTER_APP_NAME ?? "ReviewFlow";
-    if (referer) extraHeaders["HTTP-Referer"] = referer;
-    if (title) extraHeaders["X-OpenRouter-Title"] = title;
-  }
-
-  return {
-    apiKey,
-    baseUrl,
-    model,
-    provider: usesOpenRouter ? "openrouter" : "openai-compatible",
-    extraHeaders,
-  };
-}

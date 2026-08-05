@@ -4,8 +4,8 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { Icon } from "@/components/ui/icon";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BRAND } from "@/config/brand";
 import { getGrowthBillingOption, PLANS } from "@/config/plans";
+import { PoweredBy } from "@/components/layout/powered-by";
 
 const growthYear = getGrowthBillingOption("12m")!;
 const growthMonth = getGrowthBillingOption("1m")!;
@@ -155,9 +155,9 @@ export default function HomePage() {
                   <div className="mt-4 rounded-xl bg-primary p-4 text-center text-sm font-bold text-white shadow-[0_8px_20px_rgba(36,99,243,0.25)]">
                     Open Google review page
                   </div>
-                  <p className="mt-3 text-center text-[11px] font-semibold text-slate-400">
-                    {BRAND.poweredBy}
-                  </p>
+                  <div className="mt-3">
+                    <PoweredBy className="text-slate-400" />
+                  </div>
                 </div>
               </div>
             </div>

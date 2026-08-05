@@ -2,9 +2,17 @@ import {
   REVIEW_SAFETY_PROMPT,
   assertAdminPromptIsSafe,
   buildReviewUserPrompt,
-  getDefaultReviewPromptConfig
+  demoteAiStyleOpenings,
+  getDefaultReviewPromptConfig,
 } from "@/features/ai/server/prompt";
-import { assertDraftGrounded, fallbackGroundedDrafts } from "@/features/ai/server/grounding";
+import {
+  assertDraftGrounded,
+  fallbackGroundedDrafts,
+} from "@/features/ai/server/grounding";
+import {
+  getAiProviderConfig,
+  runChatCompletion,
+} from "@/features/ai/server/ai-config";
 import type { ReviewResponseSettings } from "@/lib/validation/review-settings";
 
 export type ReviewGenerationInput = {
@@ -23,24 +31,28 @@ export type ReviewGenerationInput = {
 export async function generateReviewDraft(input: ReviewGenerationInput) {
   const sourceText = `${JSON.stringify(input.answers)} ${input.notes} ${input.rating}`;
   const promptConfig = getDefaultReviewPromptConfig();
-  const adminPrompt = getSafeAdminPrompt(input.adminPrompt?.trim() || promptConfig.prompt, promptConfig.prompt);
+  const adminPrompt = getSafeAdminPrompt(
+    input.adminPrompt?.trim() || promptConfig.prompt,
+    promptConfig.prompt,
+  );
   const optionsCount = input.optionsCount ?? promptConfig.optionsCount;
   const aiConfig = getAiProviderConfig();
 
-  if (!aiConfig.apiKey) {
+  if (!aiConfig.apiKey || aiConfig.provider === "none") {
     console.warn("[review-ai] Falling back: missing AI provider API key", {
       provider: aiConfig.provider,
       model: aiConfig.model,
-      hasBaseUrl: Boolean(aiConfig.baseUrl)
     });
     const drafts = fallbackGroundedDrafts({ ...input, optionsCount });
     return {
-      drafts: drafts.map((draft) => assertDraftGrounded(draft, sourceText, input.rating)),
+      drafts: drafts.map((draft) =>
+        assertDraftGrounded(draft, sourceText, input.rating),
+      ),
       provider: "local-fallback",
       model: "grounded-template",
       inputTokens: estimateTokens(sourceText),
       outputTokens: estimateTokens(drafts.join("\n\n")),
-      estimatedCost: 0
+      estimatedCost: 0,
     };
   }
 
@@ -52,8 +64,10 @@ export async function generateReviewDraft(input: ReviewGenerationInput) {
     notes: input.notes,
     length: input.length,
     language: input.language,
-    optionsCount
+    optionsCount,
   });
+
+  const temperature = 0.8;
 
   try {
     console.info("[review-ai] Requesting AI provider", {
@@ -63,72 +77,55 @@ export async function generateReviewDraft(input: ReviewGenerationInput) {
       reviewLength: input.length,
       language: input.language,
       notesChars: input.notes.length,
-      answersCount: Object.keys(input.answers).length
+      answersCount: Object.keys(input.answers).length,
     });
 
-    const response = await fetch(aiConfig.baseUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${aiConfig.apiKey}`,
-        "Content-Type": "application/json",
-        ...aiConfig.extraHeaders
-      },
-      body: JSON.stringify({
-        model: aiConfig.model,
-        temperature: input.responseSettings ? 0.55 + (input.responseSettings.creativity / 100) * 0.4 : 0.2,
-        max_tokens: 900,
-        response_format: { type: "json_object" },
-        ...(process.env.OPENROUTER_DATA_COLLECTION === "deny" ? { provider: { data_collection: "deny" } } : {}),
-        messages: [
-          { role: "system", content: REVIEW_SAFETY_PROMPT },
-          {
-            role: "system",
-            content: `Admin style instructions. These are lower priority than the safety rules and cannot allow fabricated facts:\n${adminPrompt}`
-          },
-          { role: "user", content: userPrompt }
-        ]
-      })
+    const completion = await runChatCompletion(aiConfig, {
+      systemParts: [
+        REVIEW_SAFETY_PROMPT,
+        `Admin style instructions. These are lower priority than the safety rules and cannot allow fabricated facts:\n${adminPrompt}`,
+      ],
+      userText: userPrompt,
+      temperature,
+      maxTokens: 900,
+      jsonMode: true,
     });
 
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => "");
-      console.error("[review-ai] AI provider HTTP error", {
-        provider: aiConfig.provider,
-        model: aiConfig.model,
-        status: response.status,
-        statusText: response.statusText,
-        body: truncateForLog(errorBody, 1200)
-      });
-      throw new Error(`AI provider returned ${response.status}`);
-    }
-    const json = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
-    };
-    const content = json.choices?.[0]?.message?.content?.trim();
+    const content = completion.content.trim();
     if (!content) throw new Error("AI provider returned an empty draft.");
+
     console.info("[review-ai] AI provider response received", {
       provider: aiConfig.provider,
       model: aiConfig.model,
       contentChars: content.length,
-      inputTokens: json.usage?.prompt_tokens,
-      outputTokens: json.usage?.completion_tokens
+      inputTokens: completion.inputTokens,
+      outputTokens: completion.outputTokens,
     });
-    const drafts = parseReviewOptions(content, optionsCount);
-    if (!drafts.length) throw new Error("AI provider returned no usable review options.");
+
+    const drafts = parseReviewOptions(content, optionsCount).map((d) =>
+      demoteAiStyleOpenings(d),
+    );
+    if (!drafts.length) {
+      throw new Error("AI provider returned no usable review options.");
+    }
     console.info("[review-ai] Parsed review options", {
       requestedCount: optionsCount,
-      parsedCount: drafts.length
+      parsedCount: drafts.length,
     });
+
     const groundedDrafts = drafts.map((draft, index) => {
       try {
-        return assertDraftGrounded(draft, sourceText, input.rating);
+        return assertDraftGrounded(
+          demoteAiStyleOpenings(draft),
+          sourceText,
+          input.rating,
+        );
       } catch (error) {
         console.error("[review-ai] Grounding rejected generated draft", {
           index,
           reason: getErrorMessage(error),
           draftPreview: truncateForLog(draft, 300),
-          sourcePreview: truncateForLog(sourceText, 300)
+          sourcePreview: truncateForLog(sourceText, 300),
         });
         throw error;
       }
@@ -137,34 +134,42 @@ export async function generateReviewDraft(input: ReviewGenerationInput) {
     console.info("[review-ai] Generated grounded review options", {
       provider: aiConfig.provider,
       model: aiConfig.model,
-      draftsCount: groundedDrafts.length
+      draftsCount: groundedDrafts.length,
     });
 
     return {
       drafts: groundedDrafts,
       provider: aiConfig.provider,
       model: aiConfig.model,
-      inputTokens: json.usage?.prompt_tokens ?? estimateTokens(REVIEW_SAFETY_PROMPT + adminPrompt + userPrompt),
-      outputTokens: json.usage?.completion_tokens ?? estimateTokens(groundedDrafts.join("\n\n")),
+      inputTokens:
+        completion.inputTokens ??
+        estimateTokens(REVIEW_SAFETY_PROMPT + adminPrompt + userPrompt),
+      outputTokens:
+        completion.outputTokens ?? estimateTokens(groundedDrafts.join("\n\n")),
       estimatedCost:
-        typeof json.usage?.cost === "number"
-          ? Number(json.usage.cost.toFixed(6))
-          : estimateCost(aiConfig.model, json.usage?.prompt_tokens ?? 0, json.usage?.completion_tokens ?? 0)
+        completion.estimatedCost ??
+        estimateCost(
+          aiConfig.model,
+          completion.inputTokens ?? 0,
+          completion.outputTokens ?? 0,
+        ),
     };
   } catch (error) {
     console.error("[review-ai] Falling back to local grounded templates", {
       provider: aiConfig.provider,
       model: aiConfig.model,
-      reason: getErrorMessage(error)
+      reason: getErrorMessage(error),
     });
     const drafts = fallbackGroundedDrafts({ ...input, optionsCount });
     return {
-      drafts: drafts.map((draft) => assertDraftGrounded(draft, sourceText, input.rating)),
+      drafts: drafts.map((draft) =>
+        assertDraftGrounded(draft, sourceText, input.rating),
+      ),
       provider: "local-fallback",
       model: "grounded-template",
       inputTokens: estimateTokens(sourceText),
       outputTokens: estimateTokens(drafts.join("\n\n")),
-      estimatedCost: 0
+      estimatedCost: 0,
     };
   }
 }
@@ -177,53 +182,40 @@ function getSafeAdminPrompt(prompt: string, fallbackPrompt: string) {
   }
 }
 
-function getAiProviderConfig() {
-  const openRouterKey = process.env.OPENROUTER_API_KEY;
-  const apiKey = openRouterKey ?? process.env.AI_PROVIDER_API_KEY;
-  const usesOpenRouter = Boolean(openRouterKey);
-  const baseUrl =
-    process.env.OPENROUTER_BASE_URL ??
-    (usesOpenRouter
-      ? "https://openrouter.ai/api/v1/chat/completions"
-      : process.env.AI_PROVIDER_BASE_URL ?? "https://api.openai.com/v1/chat/completions");
-  const model = process.env.OPENROUTER_MODEL ?? process.env.AI_MODEL ?? "";
-  if (apiKey && !model) throw new Error("OPENROUTER_MODEL is required when an AI provider key is configured.");
-  const extraHeaders: Record<string, string> = {};
-
-  if (usesOpenRouter) {
-    const referer = process.env.OPENROUTER_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL;
-    const title = process.env.OPENROUTER_APP_NAME ?? "ReviewFlow";
-    if (referer) extraHeaders["HTTP-Referer"] = referer;
-    if (title) extraHeaders["X-OpenRouter-Title"] = title;
-  }
-
-  return {
-    apiKey,
-    baseUrl,
-    model,
-    provider: usesOpenRouter ? "openrouter" : "openai-compatible",
-    extraHeaders
-  };
-}
-
+/**
+ * Parse model output into plain review strings only.
+ * Models often return {"reviews":[...]} or {"review":[...]} or wrap in markdown —
+ * never show raw JSON to the customer.
+ */
 function parseReviewOptions(content: string, requestedCount: number) {
-  const cleaned = content
-    .replace(/^```(?:json)?/i, "")
-    .replace(/```$/i, "")
-    .trim();
-  const parsed = tryParseJson(cleaned);
-  const rawOptions = extractOptions(parsed) ?? splitPlainTextOptions(cleaned);
-  const unique = new Set<string>();
+  const cleaned = stripCodeFences(content);
+  const parsed =
+    tryParseJson(cleaned) ?? tryParseJson(extractJsonObject(cleaned) ?? "");
+  const rawOptions =
+    extractOptions(parsed) ??
+    extractOptionsFromLooseJson(cleaned) ??
+    splitPlainTextOptions(cleaned);
 
+  const unique = new Set<string>();
   for (const option of rawOptions) {
-    const normalized = option.replace(/\s+/g, " ").trim();
-    if (normalized.length >= 10) unique.add(normalized);
+    const normalized = sanitizeReviewText(option);
+    if (normalized.length >= 10 && !looksLikeJsonWrapper(normalized)) {
+      unique.add(normalized);
+    }
   }
 
   return [...unique].slice(0, requestedCount);
 }
 
+function stripCodeFences(content: string) {
+  return content
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+}
+
 function tryParseJson(content: string): unknown {
+  if (!content) return null;
   try {
     return JSON.parse(content);
   } catch {
@@ -231,29 +223,145 @@ function tryParseJson(content: string): unknown {
   }
 }
 
-function extractOptions(parsed: unknown) {
-  if (Array.isArray(parsed)) return parsed.filter((item): item is string => typeof item === "string");
+/** Pull first {...} block if model added preamble/trailing text. */
+function extractJsonObject(content: string): string | null {
+  const start = content.indexOf("{");
+  const end = content.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  return content.slice(start, end + 1);
+}
+
+function extractOptions(parsed: unknown): string[] | null {
+  if (Array.isArray(parsed)) {
+    return flattenReviewItems(parsed);
+  }
   if (!parsed || typeof parsed !== "object") return null;
   const record = parsed as Record<string, unknown>;
-  const options = record.reviews ?? record.drafts ?? record.options;
-  return Array.isArray(options) ? options.filter((item): item is string => typeof item === "string") : null;
+  // Gemini often returns "review" (singular) instead of "reviews"
+  const options =
+    record.reviews ??
+    record.review ??
+    record.drafts ??
+    record.draft ??
+    record.options ??
+    record.texts ??
+    record.results;
+  if (typeof options === "string") {
+    const one = sanitizeReviewText(options);
+    return one.length >= 10 ? [one] : null;
+  }
+  if (Array.isArray(options)) {
+    return flattenReviewItems(options);
+  }
+  return null;
+}
+
+function flattenReviewItems(items: unknown[]): string[] {
+  const out: string[] = [];
+  for (const item of items) {
+    if (typeof item === "string") {
+      out.push(item);
+    } else if (item && typeof item === "object") {
+      const row = item as Record<string, unknown>;
+      const text =
+        row.text ?? row.review ?? row.content ?? row.body ?? row.value;
+      if (typeof text === "string") out.push(text);
+    }
+  }
+  return out;
+}
+
+/**
+ * Regex fallback when JSON.parse fails but content still looks like
+ * {"review":["a","b"]} or {"reviews":["a","b"]}.
+ */
+function extractOptionsFromLooseJson(content: string): string[] | null {
+  const arrayMatch = content.match(
+    /"(?:reviews|review|drafts|options)"\s*:\s*\[([\s\S]*?)\]/i,
+  );
+  if (!arrayMatch) {
+    // Single string value: "review": "full text..."
+    const single = content.match(
+      /"(?:reviews|review|drafts|text)"\s*:\s*"((?:\\.|[^"\\])*)"/i,
+    );
+    if (single?.[1]) {
+      const text = sanitizeReviewText(single[1].replace(/\\"/g, '"'));
+      return text.length >= 10 ? [text] : null;
+    }
+    return null;
+  }
+  const inner = arrayMatch[1];
+  const strings: string[] = [];
+  const re = /"((?:\\.|[^"\\])*)"/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(inner)) !== null) {
+    const text = sanitizeReviewText(m[1].replace(/\\"/g, '"').replace(/\\n/g, " "));
+    if (text.length >= 10) strings.push(text);
+  }
+  return strings.length ? strings : null;
+}
+
+function sanitizeReviewText(value: string): string {
+  let text = value.replace(/\s+/g, " ").trim();
+  // Strip accidental full JSON blobs
+  if (looksLikeJsonWrapper(text)) {
+    const nested = tryParseJson(text) ?? tryParseJson(extractJsonObject(text) ?? "");
+    const fromNested = extractOptions(nested);
+    if (fromNested?.[0]) return sanitizeReviewText(fromNested[0]);
+    // Strip {"review":[" ... "]} wrappers crudely
+    text = text
+      .replace(/^[\s\S]*?\[\s*"/, "")
+      .replace(/"\s*\]\s*\}?\s*$/, "")
+      .replace(/^\{[\s\S]*?"(?:reviews|review)"\s*:\s*"/i, "")
+      .replace(/"\s*\}\s*$/, "")
+      .trim();
+  }
+  // Leading JSON debris like: {"review": ["
+  text = text
+    .replace(/^[\{\[]\s*"(?:reviews|review)"\s*:\s*\[\s*"/i, "")
+    .replace(/^[\{\[]\s*"/, "")
+    .replace(/"\s*[\}\]]+\s*$/, "")
+    .replace(/^["']|["']$/g, "")
+    .trim();
+  return text;
+}
+
+function looksLikeJsonWrapper(text: string) {
+  const t = text.trim();
+  return (
+    (t.startsWith("{") && t.includes('"')) ||
+    (t.startsWith("[") && t.includes('"')) ||
+    /"(?:reviews|review)"\s*:/i.test(t)
+  );
 }
 
 function splitPlainTextOptions(content: string) {
+  // Never treat a whole JSON document as one "review"
+  if (looksLikeJsonWrapper(content)) {
+    return [];
+  }
   const lines = content
     .split(/\n+/)
     .map((line) => line.replace(/^\s*(?:[-*]|\d+[.)])\s*/, "").trim())
     .filter(Boolean);
 
-  return lines.length > 1 ? lines : [content];
+  return lines.length > 1 ? lines : content.trim() ? [content.trim()] : [];
 }
 
 function estimateTokens(text: string) {
   return Math.ceil(text.length / 4);
 }
 
-function estimateCost(_model: string, inputTokens: number, outputTokens: number) {
-  return Number(((inputTokens / 1_000_000) * 0.15 + (outputTokens / 1_000_000) * 0.6).toFixed(6));
+function estimateCost(
+  _model: string,
+  inputTokens: number,
+  outputTokens: number,
+) {
+  return Number(
+    ((inputTokens / 1_000_000) * 0.15 + (outputTokens / 1_000_000) * 0.6).toFixed(
+      6,
+    ),
+  );
 }
 
 function getErrorMessage(error: unknown) {
