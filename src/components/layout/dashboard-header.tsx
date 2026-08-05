@@ -104,24 +104,26 @@ export function DashboardHeader({
     : (matched?.description ?? "A clear view of your customer feedback workspace.");
 
   return (
-    <header className="sticky top-0 z-20 -mx-4 mb-8 flex min-h-[4.75rem] min-w-0 flex-wrap items-center justify-between gap-4 border-b border-border/70 bg-white/90 px-4 py-4 backdrop-blur-xl sm:-mx-7 sm:px-7 lg:-mx-10 lg:px-10">
-      <div className="min-w-0">
-        <h1 className="truncate text-2xl font-extrabold tracking-[-0.055em] sm:text-[1.75rem]">
+    <header className="sticky top-0 z-20 -mx-4 mb-6 hidden min-h-[4.75rem] min-w-0 flex-wrap items-center justify-between gap-4 border-b border-border/70 bg-white/90 px-4 py-4 backdrop-blur-xl sm:-mx-7 sm:px-7 lg:-mx-10 lg:mb-8 lg:flex lg:px-10">
+      <div className="min-w-0 flex-1">
+        <h1 className="truncate text-xl font-extrabold tracking-[-0.055em] sm:text-2xl lg:text-[1.75rem]">
           {routeTitle ?? matched?.title ?? title}
         </h1>
-        <p className="mt-1 flex min-w-0 items-center gap-1.5 truncate text-sm font-medium text-muted-foreground">
+        <p className="mt-0.5 flex min-w-0 items-center gap-1.5 truncate text-xs font-medium text-muted-foreground sm:mt-1 sm:text-sm">
           {managedBusiness ? (
             <>
-              <MapPin className="h-4 w-4 shrink-0 text-primary/70" aria-hidden="true" />
-              Managing{" "}
-              <span className="font-extrabold text-foreground">{managedBusiness}</span>
+              <MapPin className="h-3.5 w-3.5 shrink-0 text-primary/70 sm:h-4 sm:w-4" aria-hidden="true" />
+              <span className="truncate">
+                Managing{" "}
+                <span className="font-extrabold text-foreground">{managedBusiness}</span>
+              </span>
             </>
           ) : (
-            routeDescription
+            <span className="truncate">{routeDescription}</span>
           )}
         </p>
       </div>
-      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+      <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
         {isAnalytics ? (
           <label className="sr-only" htmlFor="dashboard-range">
             Analytics date range
@@ -149,18 +151,26 @@ export function DashboardHeader({
             ) : null}
           </div>
         ) : null}
-        <Button asChild size="sm" variant="outline" className="hidden sm:inline-flex">
+        {/* Configuration: desktop only — hidden on mobile for a cleaner header */}
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="hidden lg:inline-flex"
+        >
           <Link href={configurationHref}>
             <Settings className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Configuration
           </Link>
         </Button>
-        <Button asChild size="icon" variant="outline" className="sm:hidden" aria-label="Open configuration">
-          <Link href={configurationHref}>
-            <Settings className="h-4 w-4" />
-          </Link>
-        </Button>
-        <ProfileMenu name={account?.name} email={account?.email} mode={mode} />
+        {/* Profile lives in the mobile top bar (left of hamburger); keep it here on desktop */}
+        <div className="hidden lg:block">
+          <ProfileMenu
+            name={account?.name}
+            email={account?.email}
+            mode={mode}
+          />
+        </div>
       </div>
     </header>
   );

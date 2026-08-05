@@ -357,23 +357,145 @@ export function QrPreview({
 
   return (
     <div className="min-w-0">
-      <div className="grid min-w-0 items-start gap-7 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="min-w-0 space-y-5">
-          <EditorCard title="Poster Configuration" number="1">
-            <div className="grid gap-x-4 gap-y-4 md:grid-cols-2">
-              <Field
-                label="Business Shop Name"
-                htmlFor="poster-display-name"
+      {/* Mobile: preview first. Desktop: editor left, sticky preview right. */}
+      <div className="grid min-w-0 items-start gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] xl:gap-6">
+        {/* Preview — first on mobile */}
+        <div className="order-1 min-w-0 xl:order-2 xl:sticky xl:top-4 xl:self-start">
+          <section
+            className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.05)]"
+            aria-label="Live poster preview"
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
+              <div>
+                <h2 className="text-sm font-extrabold tracking-[-0.02em] text-slate-950">
+                  Live preview
+                </h2>
+                <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+                  Updates as you edit
+                </p>
+              </div>
+              <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-extrabold text-primary">
+                {selectedTemplate.name}
+              </span>
+            </div>
+
+            <div className="flex justify-center bg-gradient-to-b from-slate-50 to-white px-4 py-5 sm:px-6 sm:py-6">
+              <div
+                id="reviewflow-poster-print"
+                className="relative aspect-[3/4] w-full max-w-[220px] overflow-hidden rounded-xl shadow-[0_16px_40px_rgba(15,23,42,0.16)] ring-1 ring-slate-200/90 sm:max-w-[260px]"
               >
+                {posterImage ? (
+                  <img
+                    src={posterImage}
+                    alt={`${displayName || businessName} poster with QR code`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="relative flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+                    <img
+                      src={selectedTemplate.backgroundImage}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div className="relative z-10 flex flex-col items-center gap-3 rounded-xl bg-black/30 px-4 py-3 backdrop-blur-sm">
+                      <LoadingSpinner label="Building poster" />
+                      <p className="text-xs font-semibold text-white drop-shadow">
+                        {composing || !png
+                          ? "Building poster…"
+                          : "Preparing preview…"}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-3 border-t border-slate-100 px-4 py-4 sm:px-5">
+              <div className="rounded-xl border border-blue-100 bg-blue-50/80 p-3 sm:p-3.5">
+                <p className="text-[11px] font-extrabold text-slate-800">
+                  Campaign QR link
+                </p>
+                <button
+                  type="button"
+                  className="mt-1 flex min-w-0 w-full cursor-pointer items-center gap-2 text-left text-xs font-medium text-primary hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  onClick={() => void copyCampaignUrl()}
+                  aria-busy={copying}
+                  aria-label="Copy campaign QR review link"
+                  title={url}
+                >
+                  <span className="min-w-0 flex-1 truncate">{url}</span>
+                  <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-10 w-full gap-1.5 text-xs"
+                  loading={saving}
+                  loadingLabel="Saving…"
+                  onClick={saveConfiguration}
+                >
+                  <Check className="h-4 w-4 shrink-0" />
+                  Save
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-10 w-full gap-1.5 bg-slate-900 text-xs text-white hover:bg-slate-800"
+                  loading={exporting}
+                  loadingLabel="…"
+                  onClick={() => void exportPoster()}
+                  disabled={!png || (!posterImage && composing)}
+                >
+                  <Download className="h-4 w-4 shrink-0" />
+                  Download
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-10 w-full gap-1.5 text-xs"
+                  onClick={() => window.print()}
+                >
+                  <Printer className="h-4 w-4 shrink-0" />
+                  Print
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-10 w-full gap-1.5 text-xs"
+                  onClick={downloadQrOnly}
+                  disabled={!png}
+                >
+                  <Download className="h-4 w-4 shrink-0" />
+                  QR only
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Editor controls */}
+        <div className="order-2 min-w-0 space-y-4 sm:space-y-5 xl:order-1">
+          <EditorCard title="Poster setup" number="1">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Business name" htmlFor="poster-display-name">
                 <Input
                   id="poster-display-name"
                   value={displayName}
                   onChange={(event) => setDisplayName(event.target.value)}
                   maxLength={100}
+                  placeholder="Your shop name"
                 />
               </Field>
               <div>
-                <Label>Upload brand logo</Label>
+                <Label className="text-[13px] font-bold text-slate-700">
+                  Brand logo
+                </Label>
                 <ImageUpload
                   id="brand-logo-upload"
                   uploading={uploading === "brand"}
@@ -381,71 +503,78 @@ export function QrPreview({
                 />
               </div>
               <Field
-                label="Poster title heading"
+                label="Headline"
                 htmlFor="poster-headline"
-                className="md:col-span-2"
+                className="sm:col-span-2"
               >
                 <Input
                   id="poster-headline"
                   value={headline}
                   onChange={(event) => setHeadline(event.target.value)}
                   maxLength={160}
+                  placeholder="Love our service?"
                 />
               </Field>
               <Field
-                label="Poster message subtitle"
+                label="Subtitle"
                 htmlFor="poster-subtitle"
-                className="md:col-span-2"
+                className="sm:col-span-2"
               >
                 <Input
                   id="poster-subtitle"
                   value={subtitle}
                   onChange={(event) => setSubtitle(event.target.value)}
                   maxLength={160}
+                  placeholder="Scan to leave a Google review"
                 />
               </Field>
             </div>
           </EditorCard>
 
           <EditorCard
-            title="Poster Layout Templates"
+            title="Layout templates"
             number="2"
             action={
-              <div className="flex gap-2">
+              <div className="flex gap-1.5">
                 <button
                   type="button"
                   onClick={() => cycleTemplate(-1)}
-                  className="grid h-9 w-9 cursor-pointer rounded-full bg-primary text-white transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-primary text-white transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Previous poster template"
                 >
-                  <ArrowRight className="m-auto h-4 w-4 rotate-180" />
+                  <ArrowRight className="h-3.5 w-3.5 rotate-180" />
                 </button>
                 <button
                   type="button"
                   onClick={() => cycleTemplate(1)}
-                  className="grid h-9 w-9 cursor-pointer rounded-full bg-primary text-white transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-primary text-white transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label="Next poster template"
                 >
-                  <ArrowRight className="m-auto h-4 w-4" />
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               </div>
             }
           >
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {/* Horizontal scroll on small screens; grid on larger */}
+            <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 scroll-smooth sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0 lg:grid-cols-5">
               {POSTER_TEMPLATES.map((item) => (
-                <TemplateTile
+                <div
                   key={item.id}
-                  item={item}
-                  selected={template === item.id}
-                  onClick={() => setTemplate(item.id)}
-                  qrColor={qrColor}
-                />
+                  className="w-[7.5rem] shrink-0 sm:w-auto sm:min-w-0"
+                >
+                  <TemplateTile
+                    item={item}
+                    selected={template === item.id}
+                    onClick={() => setTemplate(item.id)}
+                    qrColor={qrColor}
+                  />
+                </div>
               ))}
             </div>
           </EditorCard>
 
-          <EditorCard title="QR Code Design Options" number="3">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <EditorCard title="QR design" number="3">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
               {QR_STYLES.map((item) => (
                 <QrStyleTile
                   key={item.id}
@@ -458,30 +587,30 @@ export function QrPreview({
                 />
               ))}
             </div>
-            <div className="mt-6 grid gap-5 border-t border-slate-200 pt-5 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:items-end">
+            <div className="mt-5 grid gap-5 border-t border-slate-100 pt-5 sm:grid-cols-2">
               <div>
-                <Label>Custom color</Label>
-                <div className="mt-3 flex items-center gap-3">
-                  <div className="flex gap-2">
-                    {QR_STYLES.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        aria-label={`Use ${item.name} color`}
-                        onClick={() => {
-                          setQrStyle(item.id);
-                          setQrColor(item.color);
-                        }}
-                        className="h-9 w-9 cursor-pointer rounded-full border-2 border-white shadow-[0_0_0_1px_#cbd5e1] transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                        style={{ backgroundColor: item.color }}
-                      />
-                    ))}
-                  </div>
+                <Label className="text-[13px] font-bold text-slate-700">
+                  QR color
+                </Label>
+                <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                  {QR_STYLES.map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      aria-label={`Use ${item.name} color`}
+                      onClick={() => {
+                        setQrStyle(item.id);
+                        setQrColor(item.color);
+                      }}
+                      className="h-8 w-8 cursor-pointer rounded-full border-2 border-white shadow-[0_0_0_1px_#cbd5e1] transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      style={{ backgroundColor: item.color }}
+                    />
+                  ))}
                   <label
-                    className="relative h-9 w-9 cursor-pointer overflow-hidden rounded-full border-2 border-white shadow-[0_0_0_1px_#cbd5e1] focus-within:ring-2 focus-within:ring-primary"
+                    className="relative h-8 w-8 cursor-pointer overflow-hidden rounded-full border-2 border-white shadow-[0_0_0_1px_#cbd5e1] focus-within:ring-2 focus-within:ring-primary"
                     aria-label="Choose custom QR color"
                   >
-                    <Settings className="pointer-events-none absolute inset-2 z-10 h-5 w-5 text-white drop-shadow" />
+                    <Settings className="pointer-events-none absolute inset-1.5 z-10 h-5 w-5 text-white drop-shadow" />
                     <input
                       type="color"
                       value={qrColor}
@@ -489,37 +618,37 @@ export function QrPreview({
                       className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                     />
                   </label>
-                  <span className="text-xs font-extrabold uppercase tracking-[0.08em] text-slate-500">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wide text-slate-500">
                     {qrColor}
                   </span>
                 </div>
               </div>
               <div>
-                <Label>Upload QR code logo</Label>
+                <Label className="text-[13px] font-bold text-slate-700">
+                  QR center logo
+                </Label>
                 <ImageUpload
                   id="qr-logo-upload"
                   uploading={uploading === "qr"}
                   onChange={(file) => void uploadImage(file, "qr")}
                 />
-                <div className="mt-2 flex min-h-5 items-center justify-end">
-                  {qrLogoUrl ? (
-                    <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={logoOverlay}
-                        onChange={(event) =>
-                          setLogoOverlay(event.target.checked)
-                        }
-                        className="h-4 w-4 accent-primary"
-                      />
-                      Show logo in QR
-                    </label>
-                  ) : null}
-                </div>
+                {qrLogoUrl ? (
+                  <label className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={logoOverlay}
+                      onChange={(event) =>
+                        setLogoOverlay(event.target.checked)
+                      }
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Show logo in QR
+                  </label>
+                ) : null}
               </div>
             </div>
-            <div className="mt-5 flex flex-wrap gap-4 border-t border-slate-200 pt-5 text-xs font-semibold text-slate-500">
-              <label className="flex items-center gap-2">
+            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-slate-100 pt-4 text-xs font-semibold text-slate-500">
+              <label className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
                   checked={transparent}
@@ -528,129 +657,12 @@ export function QrPreview({
                 />
                 Transparent QR background
               </label>
-              <span className="inline-flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                High-resolution QR output
+              <span className="inline-flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                Print-ready export
               </span>
             </div>
           </EditorCard>
-        </div>
-
-        <div className="min-w-0 xl:sticky xl:top-5 xl:self-start">
-          <section
-            className="min-w-0 rounded-[16px] border border-dashed border-slate-300 bg-white p-4"
-            aria-label="Live poster preview"
-          >
-            <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
-              <h2 className="text-[14px] font-extrabold text-slate-950">
-                Live Poster Mockup
-              </h2>
-              <span className="rounded-full bg-blue-50 px-3 py-1 text-[9px] font-extrabold text-blue-600">
-                {selectedTemplate.name}
-              </span>
-            </div>
-            <div className="mt-5 flex justify-center py-1">
-              <div
-                id="reviewflow-poster-print"
-                className="relative aspect-[3/4] w-full max-w-[280px] overflow-hidden rounded-xl shadow-[0_18px_45px_rgba(15,23,42,0.18)] ring-1 ring-slate-200/80"
-              >
-                {posterImage ? (
-                  <img
-                    src={posterImage}
-                    alt={`${displayName || businessName} poster with QR code`}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className="relative flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center"
-                    style={{ color: selectedTemplate.foreground }}
-                  >
-                    <img
-                      src={selectedTemplate.backgroundImage}
-                      alt=""
-                      aria-hidden="true"
-                      className="absolute inset-0 h-full w-full object-cover"
-                    />
-                    <div className="relative z-10 flex flex-col items-center gap-3 rounded-xl bg-black/25 px-4 py-3 backdrop-blur-sm">
-                      <LoadingSpinner label="Building poster" />
-                      <p className="text-xs font-semibold text-white drop-shadow">
-                        {composing || !png
-                          ? "Building poster image…"
-                          : "Preparing preview…"}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-4">
-              <div className="flex items-start gap-2">
-                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                <div className="min-w-0">
-                  <p className="text-xs font-extrabold text-slate-800">
-                    Campaign Active QR Review Link:
-                  </p>
-                  <button
-                    type="button"
-                    className="mt-1 flex min-w-0 w-full cursor-pointer items-center gap-2 truncate text-left text-xs font-medium text-primary hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    onClick={() => void copyCampaignUrl()}
-                    aria-busy={copying}
-                    aria-label="Copy campaign active QR review link"
-                    title={url}
-                  >
-                    <span className="min-w-0 truncate">{url}</span>
-                    <Copy className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Button
-                type="button"
-                size="sm"
-                className="flex h-10 min-w-0 w-full items-center gap-1.5 px-2 text-xs whitespace-nowrap"
-                loading={saving}
-                loadingLabel="Saving..."
-                onClick={saveConfiguration}
-              >
-                <Check className="h-4 w-4 shrink-0" />
-                <span className="truncate">Save</span>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-10 min-w-0 w-full gap-1.5 px-2 text-xs whitespace-nowrap"
-                onClick={() => window.print()}
-              >
-                <Printer className="h-4 w-4 shrink-0" />
-                <span className="truncate">Print</span>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-10 min-w-0 w-full gap-1.5 px-2 text-xs whitespace-nowrap"
-                onClick={downloadQrOnly}
-                disabled={!png}
-              >
-                <Download className="h-4 w-4 shrink-0" />
-                <span className="truncate">QR only</span>
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                className="h-10 min-w-0 w-full gap-1.5 whitespace-nowrap bg-slate-900 px-2 text-xs text-white hover:bg-slate-800"
-                loading={exporting}
-                loadingLabel="Downloading…"
-                onClick={() => void exportPoster()}
-                disabled={!png || (!posterImage && composing)}
-              >
-                <Download className="h-4 w-4 shrink-0" />
-                <span className="truncate">Download</span>
-              </Button>
-            </div>
-          </section>
         </div>
       </div>
       <style jsx global>{`
@@ -689,18 +701,17 @@ function EditorCard({
 }) {
   return (
     <section
-      className="min-w-0 rounded-[16px] border border-slate-200 bg-white px-6 py-5 shadow-[0_2px_8px_rgba(15,23,42,0.025)]"
+      className="min-w-0 rounded-2xl border border-slate-200/90 bg-white px-4 py-4 shadow-[0_2px_12px_rgba(15,23,42,0.04)] sm:px-5 sm:py-5"
       aria-label={title}
     >
-      <div className="flex min-h-9 items-center justify-between gap-4 border-b border-slate-200 pb-3">
-        <h2 className="text-[14px] font-extrabold uppercase tracking-[-0.01em] text-slate-950">
-          {number}. {title}
+      <div className="flex min-h-8 items-center justify-between gap-3 border-b border-slate-100 pb-3">
+        <h2 className="text-[12px] font-extrabold uppercase tracking-[0.04em] text-slate-800 sm:text-[13px]">
+          <span className="mr-1.5 text-primary">{number}.</span>
+          {title}
         </h2>
-
         {action}
       </div>
-
-      <div className="pt-5">{children}</div>
+      <div className="pt-4">{children}</div>
     </section>
   );
 }
@@ -788,55 +799,48 @@ function TemplateTile({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
-      className={`min-w-0 cursor-pointer rounded-[14px] border bg-white p-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+      className={`w-full min-w-0 cursor-pointer rounded-xl border bg-white p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-2 ${
         selected
-          ? "border-2 border-blue-600 bg-blue-50/40 shadow-[0_8px_20px_rgba(36,99,243,0.12)]"
-          : "border-slate-200 hover:border-slate-300"
+          ? "border-2 border-primary bg-primary/[0.04] shadow-[0_6px_16px_rgba(36,99,243,0.14)]"
+          : "border-slate-200 hover:border-slate-300 hover:shadow-sm"
       }`}
     >
       <div
-        className="relative aspect-[3/4] overflow-hidden rounded-[7px]"
+        className="relative aspect-[3/4] overflow-hidden rounded-lg"
         style={{ background: item.background }}
       >
-        {/* Designed template background art */}
         <img
           src={item.backgroundImage}
           alt=""
           aria-hidden="true"
           className="absolute inset-0 h-full w-full object-cover"
         />
-        {/* Mini content preview so tiles still read as QR posters */}
-        <div className="absolute inset-0 flex flex-col items-center px-2 py-2.5 text-center">
+        <div className="absolute inset-0 flex flex-col items-center px-1.5 py-2 text-center">
           <span
-            className="mt-1 text-[9px] leading-none drop-shadow-sm"
+            className="mt-0.5 text-[8px] leading-none drop-shadow-sm"
             style={{ color: item.foreground }}
           >
             ★★★★★
           </span>
           <span
-            className="mt-1.5 h-1.5 w-10 rounded opacity-80"
-            style={{ backgroundColor: item.foreground }}
-          />
-          <span
-            className="mt-1 h-1 w-12 rounded opacity-40"
+            className="mt-1 h-1 w-8 rounded opacity-70"
             style={{ backgroundColor: item.foreground }}
           />
           <div
-            className="mt-2 rounded-md border-2 bg-white p-0.5 shadow-sm"
+            className="mt-1.5 rounded border bg-white p-0.5 shadow-sm"
             style={{ borderColor: item.accent }}
           >
             <FakeQr color={qrColor} />
           </div>
           <span
-            className="mt-auto mb-1 rounded-full px-2 py-0.5 text-[7px] font-extrabold uppercase tracking-wide text-white shadow-sm"
+            className="mt-auto mb-0.5 rounded-full px-1.5 py-0.5 text-[6px] font-extrabold uppercase tracking-wide text-white shadow-sm"
             style={{ backgroundColor: item.accent }}
           >
             Scan
           </span>
         </div>
       </div>
-
-      <span className="mt-2 block truncate text-center text-[11px] font-extrabold text-slate-950">
+      <span className="mt-1.5 block truncate text-center text-[10px] font-extrabold text-slate-900 sm:text-[11px]">
         {item.name}
       </span>
     </button>

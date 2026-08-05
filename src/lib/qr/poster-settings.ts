@@ -42,6 +42,16 @@ export const POSTER_TEMPLATES = [
     accent: "#10b981",
     backgroundImage: "/poster-templates/evergreen.jpg",
   },
+  {
+    id: "luxury-gold",
+    name: "Gold Marble",
+    description: "Premium gold & marble poster",
+    background: "#f7f1e8",
+    surface: "#fffdf8",
+    foreground: "#3d2b1f",
+    accent: "#c9a227",
+    backgroundImage: "/poster-templates/luxury-gold.jpg",
+  },
 ] as const;
 
 export const QR_STYLES = [

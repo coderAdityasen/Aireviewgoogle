@@ -30,9 +30,10 @@ export function AppShell({
         planKey={planKey}
         privateFeedback={privateFeedback}
         navCounts={navCounts}
+        account={account}
       />
       <div className="min-w-0 lg:pl-[252px]">
-        <main className="mx-auto min-w-0 max-w-[1500px] px-4 pb-12 pt-0 sm:px-7 lg:px-10">
+        <main className="mx-auto min-w-0 max-w-[1500px] px-4 pb-12 pt-4 sm:px-7 sm:pt-5 lg:px-10 lg:pt-0">
           <DashboardHeader
             title={title}
             mode={mode}
