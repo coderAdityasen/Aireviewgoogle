@@ -562,18 +562,23 @@ export function QrPreview({
                   />
                 ) : (
                   <div
-                    className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center"
-                    style={{
-                      background: posterBackground(template),
-                      color: selectedTemplate.foreground,
-                    }}
+                    className="relative flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center"
+                    style={{ color: selectedTemplate.foreground }}
                   >
-                    <LoadingSpinner label="Building poster" />
-                    <p className="text-xs font-semibold opacity-70">
-                      {composing || !png
-                        ? "Building poster image…"
-                        : "Preparing preview…"}
-                    </p>
+                    <img
+                      src={selectedTemplate.backgroundImage}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <div className="relative z-10 flex flex-col items-center gap-3 rounded-xl bg-black/25 px-4 py-3 backdrop-blur-sm">
+                      <LoadingSpinner label="Building poster" />
+                      <p className="text-xs font-semibold text-white drop-shadow">
+                        {composing || !png
+                          ? "Building poster image…"
+                          : "Preparing preview…"}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -791,25 +796,39 @@ function TemplateTile({
     >
       <div
         className="relative aspect-[3/4] overflow-hidden rounded-[7px]"
-        style={{
-          background: posterBackground(item.id),
-        }}
+        style={{ background: item.background }}
       >
-        <div
-          className="absolute inset-2 flex flex-col items-center rounded-[5px] px-2 py-2.5 text-center"
-          style={{
-            backgroundColor: item.surface,
-            color: item.foreground,
-          }}
-        >
-          <span className="text-[9px] leading-none text-amber-400">★★★★★</span>
-          <span className="mt-1.5 h-1.5 w-12 rounded bg-current opacity-70" />
-          <span className="mt-1 h-1 w-14 rounded bg-current opacity-30" />
-          <div className="mt-2 rounded-md border-2 bg-white p-0.5" style={{ borderColor: item.accent }}>
+        {/* Designed template background art */}
+        <img
+          src={item.backgroundImage}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        {/* Mini content preview so tiles still read as QR posters */}
+        <div className="absolute inset-0 flex flex-col items-center px-2 py-2.5 text-center">
+          <span
+            className="mt-1 text-[9px] leading-none drop-shadow-sm"
+            style={{ color: item.foreground }}
+          >
+            ★★★★★
+          </span>
+          <span
+            className="mt-1.5 h-1.5 w-10 rounded opacity-80"
+            style={{ backgroundColor: item.foreground }}
+          />
+          <span
+            className="mt-1 h-1 w-12 rounded opacity-40"
+            style={{ backgroundColor: item.foreground }}
+          />
+          <div
+            className="mt-2 rounded-md border-2 bg-white p-0.5 shadow-sm"
+            style={{ borderColor: item.accent }}
+          >
             <FakeQr color={qrColor} />
           </div>
           <span
-            className="mt-auto rounded-full px-2 py-0.5 text-[7px] font-extrabold uppercase tracking-wide text-white"
+            className="mt-auto mb-1 rounded-full px-2 py-0.5 text-[7px] font-extrabold uppercase tracking-wide text-white shadow-sm"
             style={{ backgroundColor: item.accent }}
           >
             Scan
@@ -876,12 +895,3 @@ function FakeQr({ color, large = false }: { color: string; large?: boolean }) {
   );
 }
 
-function posterBackground(template: PosterTemplateId) {
-  if (template === "midnight")
-    return "linear-gradient(155deg, #07111f 18%, #12306a 100%)";
-  if (template === "warm")
-    return "linear-gradient(155deg, #fff7ed 10%, #fdba74 100%)";
-  if (template === "evergreen")
-    return "linear-gradient(155deg, #052e16 10%, #065f46 100%)";
-  return "linear-gradient(155deg, #eef5ff 10%, #dbeafe 100%)";
-}

@@ -4,7 +4,10 @@
  * a designed template background. Preview and download use the same pipeline.
  */
 
-import type { PosterTemplateId } from "@/lib/qr/poster-settings";
+import {
+  getPosterTemplate,
+  type PosterTemplateId,
+} from "@/lib/qr/poster-settings";
 import { BRAND } from "@/config/brand";
 
 export type PosterComposeInput = {
@@ -93,6 +96,20 @@ const THEMES: Record<PosterTemplateId, Theme> = {
     badge: "#059669",
     footer: "rgba(236,253,245,0.55)",
     dark: true,
+  },
+  "luxury-gold": {
+    bgTop: "#f7f1e8",
+    bgBottom: "#e8d5b5",
+    card: "#fffdf8",
+    text: "#3d2b1f",
+    muted: "rgba(61,43,31,0.62)",
+    accent: "#c9a227",
+    accentSoft: "rgba(201,162,39,0.18)",
+    star: "#d4af37",
+    qrFrame: "#fffef9",
+    badge: "#ea580c",
+    footer: "rgba(61,43,31,0.5)",
+    dark: false,
   },
 };
 
@@ -327,7 +344,25 @@ function drawDecor(
 }
 
 /**
+ * Cover-draw an image onto the canvas (object-fit: cover).
+ */
+function drawImageCover(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+) {
+  const scale = Math.max(width / image.width, height / image.height);
+  const drawW = image.width * scale;
+  const drawH = image.height * scale;
+  const x = (width - drawW) / 2;
+  const y = (height - drawH) / 2;
+  ctx.drawImage(image, x, y, drawW, drawH);
+}
+
+/**
  * Compose a full poster PNG as a data URL.
+ * Uses designed template background images from /public/poster-templates.
  */
 export async function composePosterPng(
   input: PosterComposeInput,
@@ -335,6 +370,7 @@ export async function composePosterPng(
   const width = input.width ?? 1080;
   const height = input.height ?? 1440;
   const theme = THEMES[input.template] ?? THEMES.midnight;
+  const templateMeta = getPosterTemplate(input.template);
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -342,30 +378,40 @@ export async function composePosterPng(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not available in this browser.");
 
-  // Background gradient
-  const bg = ctx.createLinearGradient(0, 0, width * 0.2, height);
-  bg.addColorStop(0, theme.bgTop);
-  bg.addColorStop(1, theme.bgBottom);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, width, height);
-  drawDecor(ctx, width, height, theme);
+  // Designed template background image (fallback: gradient + decor)
+  let usedBackgroundImage = false;
+  try {
+    const bgImage = await loadImage(templateMeta.backgroundImage);
+    drawImageCover(ctx, bgImage, width, height);
+    usedBackgroundImage = true;
+  } catch {
+    const bg = ctx.createLinearGradient(0, 0, width * 0.2, height);
+    bg.addColorStop(0, theme.bgTop);
+    bg.addColorStop(1, theme.bgBottom);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, width, height);
+    drawDecor(ctx, width, height, theme);
+  }
 
-  // Inner card
-  const pad = Math.round(width * 0.07);
+  // Content area — slightly tighter when art already provides a framed panel
+  const pad = Math.round(width * (usedBackgroundImage ? 0.11 : 0.07));
   const cardX = pad;
   const cardY = pad;
   const cardW = width - pad * 2;
   const cardH = height - pad * 2;
-  fillRoundRect(ctx, cardX, cardY, cardW, cardH, 36, theme.card);
 
-  // Soft inner border
-  ctx.strokeStyle = theme.dark ? "rgba(255,255,255,0.08)" : "rgba(15,23,42,0.06)";
-  ctx.lineWidth = 2;
-  roundRect(ctx, cardX + 2, cardY + 2, cardW - 4, cardH - 4, 34);
-  ctx.stroke();
+  if (!usedBackgroundImage) {
+    fillRoundRect(ctx, cardX, cardY, cardW, cardH, 36, theme.card);
+    ctx.strokeStyle = theme.dark
+      ? "rgba(255,255,255,0.08)"
+      : "rgba(15,23,42,0.06)";
+    ctx.lineWidth = 2;
+    roundRect(ctx, cardX + 2, cardY + 2, cardW - 4, cardH - 4, 34);
+    ctx.stroke();
+  }
 
   const cx = width / 2;
-  let y = cardY + Math.round(height * 0.06);
+  let y = cardY + Math.round(height * (usedBackgroundImage ? 0.05 : 0.06));
 
   // Business brand logo when set; otherwise real Google logo
   if (input.brandLogoUrl) {

@@ -8,7 +8,9 @@ export const POSTER_TEMPLATES = [
     background: "#0b1428",
     surface: "#0e1c38",
     foreground: "#ffffff",
-    accent: "#2463f3"
+    accent: "#2463f3",
+    /** Designed poster art used as the full-bleed background. */
+    backgroundImage: "/poster-templates/midnight.jpg",
   },
   {
     id: "clear",
@@ -17,7 +19,8 @@ export const POSTER_TEMPLATES = [
     background: "#eef5ff",
     surface: "#ffffff",
     foreground: "#0f172a",
-    accent: "#2463f3"
+    accent: "#2463f3",
+    backgroundImage: "/poster-templates/clear.jpg",
   },
   {
     id: "warm",
@@ -26,7 +29,8 @@ export const POSTER_TEMPLATES = [
     background: "#fff7ed",
     surface: "#fffaf5",
     foreground: "#431407",
-    accent: "#ea580c"
+    accent: "#ea580c",
+    backgroundImage: "/poster-templates/warm.jpg",
   },
   {
     id: "evergreen",
@@ -35,8 +39,9 @@ export const POSTER_TEMPLATES = [
     background: "#052e16",
     surface: "#064e3b",
     foreground: "#ecfdf5",
-    accent: "#10b981"
-  }
+    accent: "#10b981",
+    backgroundImage: "/poster-templates/evergreen.jpg",
+  },
 ] as const;
 
 export const QR_STYLES = [
