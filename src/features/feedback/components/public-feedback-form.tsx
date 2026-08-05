@@ -49,10 +49,13 @@ export function PublicFeedbackForm({
   const [customTag, setCustomTag] = useState("");
   const [tone, setTone] = useState<Tone>(defaultTone);
   const [drafts, setDrafts] = useState<string[]>([]);
+  /** Which option from the current AI batch is shown (0-based). */
+  const [draftIndex, setDraftIndex] = useState(0);
   const [feedbackId, setFeedbackId] = useState("");
   const [selectedDraft, setSelectedDraft] = useState("");
   
   const [generating, setGenerating] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [copying, setCopying] = useState(false);
   const [openingGoogle, setOpeningGoogle] = useState(false);
   const [submittingPrivate, setSubmittingPrivate] = useState(false);
@@ -62,12 +65,23 @@ export function PublicFeedbackForm({
   const [reviewRequestsRemaining, setReviewRequestsRemaining] = useState<number | null>(null);
   
   const generateAbortController = useRef<AbortController | null>(null);
+  const streamAbortController = useRef<AbortController | null>(null);
+  const busy = generating || streaming;
 
   const canGenerate = rating !== null;
   const isLowRating = rating !== null && rating <= 3;
   const isGoogleEligible = rating !== null && rating >= 4;
   const canRegenerate = regenerationsRemaining === null || regenerationsRemaining > 0;
   const canRequestReview = reviewRequestsRemaining === null || reviewRequestsRemaining > 0;
+  const generated = drafts.length > 0;
+  /** More options already in hand — cycle without calling AI. */
+  const hasLocalNextOption = generated && draftIndex < drafts.length - 1;
+  /**
+   * Regenerate is allowed if we can still cycle the batch, or if plan allows
+   * another AI regeneration when the batch is exhausted.
+   */
+  const canUseRegenerate =
+    hasLocalNextOption || (canRegenerate && canRequestReview);
   
   const ratingTags = useMemo(() => {
     if (rating === null) return [];
@@ -93,10 +107,69 @@ export function PublicFeedbackForm({
   }, [business.slug, campaignToken]);
 
   const resetDraft = useCallback(() => {
+    streamAbortController.current?.abort();
+    generateAbortController.current?.abort();
     setDrafts([]);
+    setDraftIndex(0);
     setSelectedDraft("");
     setFeedbackId("");
     setPrivateSubmitted(false);
+    setGenerating(false);
+    setStreaming(false);
+  }, []);
+
+  /**
+   * Stream review text into the textarea character-by-character so regeneration
+   * feels like a real AI write, not an instant swap.
+   */
+  const streamDraftText = useCallback(async (fullText: string) => {
+    streamAbortController.current?.abort();
+    const controller = new AbortController();
+    streamAbortController.current = controller;
+
+    setStreaming(true);
+    setSelectedDraft("");
+
+    // Brief "thinking" pause before characters appear.
+    await new Promise<void>((resolve) => {
+      const t = window.setTimeout(resolve, 450 + Math.floor(Math.random() * 350));
+      controller.signal.addEventListener("abort", () => {
+        window.clearTimeout(t);
+        resolve();
+      });
+    });
+    if (controller.signal.aborted) {
+      setStreaming(false);
+      return;
+    }
+
+    const text = fullText.trim();
+    let i = 0;
+    // Faster for long drafts so users are not waiting forever.
+    const chunkSize = text.length > 280 ? 3 : text.length > 140 ? 2 : 1;
+    const stepMs = 14 + Math.floor(Math.random() * 10);
+
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        if (controller.signal.aborted) {
+          resolve();
+          return;
+        }
+        i = Math.min(text.length, i + chunkSize);
+        setSelectedDraft(text.slice(0, i));
+        if (i >= text.length) {
+          resolve();
+          return;
+        }
+        window.setTimeout(tick, stepMs);
+      };
+      tick();
+    });
+
+    if (!controller.signal.aborted) {
+      setSelectedDraft(text);
+    }
+    setStreaming(false);
   }, []);
 
   const chooseRating = useCallback((value: number) => {
@@ -123,10 +196,12 @@ export function PublicFeedbackForm({
     resetDraft();
   }, [resetDraft]);
 
+  /** Call AI for a fresh batch of review options, then stream option 1 into the field. */
   const generateDraft = useCallback(async (options?: { regenerate?: boolean }) => {
     if (rating === null) return;
     
     generateAbortController.current?.abort();
+    streamAbortController.current?.abort();
     const controller = new AbortController();
     generateAbortController.current = controller;
 
@@ -135,12 +210,20 @@ export function PublicFeedbackForm({
       toast.error("Regeneration limit reached on this plan.");
       return;
     }
-    if (!isRegenerate && !canRequestReview) {
+    if (!canRequestReview) {
       toast.error("Review request limit reached on this plan.");
       return;
     }
 
-    resetDraft();
+    // Clear visible draft immediately so it feels like a fresh generation.
+    setSelectedDraft("");
+    setStreaming(false);
+    if (!isRegenerate) {
+      setDrafts([]);
+      setDraftIndex(0);
+      setFeedbackId("");
+      setPrivateSubmitted(false);
+    }
     setGenerating(true);
     
     try {
@@ -173,9 +256,8 @@ export function PublicFeedbackForm({
         
       if (!nextDrafts.length) throw new Error("No review draft was returned. Please try again.");
       
-      const firstDraft = nextDrafts[0];
       setDrafts(nextDrafts);
-      setSelectedDraft(firstDraft); 
+      setDraftIndex(0);
       setFeedbackId(json.feedbackId ?? "");
       
       if (typeof json.regenerationsRemaining === "number" || json.regenerationsRemaining === null) {
@@ -184,14 +266,69 @@ export function PublicFeedbackForm({
       if (typeof json.reviewRequestsRemaining === "number" || json.reviewRequestsRemaining === null) {
         setReviewRequestsRemaining(json.reviewRequestsRemaining);
       }
+
+      setGenerating(false);
+      // Stream the first option so it looks like live generation.
+      await streamDraftText(nextDrafts[0]);
     } catch (error) {
       if ((error as Error).name !== "AbortError") {
         toast.error(error instanceof Error ? error.message : "The review assistant is temporarily unavailable.");
       }
-    } finally {
       setGenerating(false);
+      setStreaming(false);
     }
-  }, [rating, canRegenerate, canRequestReview, resetDraft, business.slug, business.default_language, campaignToken, visitorSessionId, tone, selectedTags, defaultReviewLength]);
+  }, [rating, canRegenerate, canRequestReview, business.slug, business.default_language, campaignToken, visitorSessionId, tone, selectedTags, defaultReviewLength, streamDraftText]);
+
+  /**
+   * Regenerate:
+   * 1) Next cached draft with delay + stream (no API) until batch ends.
+   * 2) Then call AI for a new batch and stream the first result.
+   * UI never exposes option numbers.
+   */
+  const handleRegenerate = useCallback(() => {
+    if (busy || openingGoogle || submittingPrivate) return;
+
+    if (hasLocalNextOption) {
+      const nextIndex = draftIndex + 1;
+      const nextText = drafts[nextIndex];
+      setDraftIndex(nextIndex);
+      setSelectedDraft("");
+      setGenerating(true);
+      streamAbortController.current?.abort();
+      const thinkController = new AbortController();
+      streamAbortController.current = thinkController;
+      // Fake thinking delay, then stream — feels like a real regenerate.
+      const delay = 500 + Math.floor(Math.random() * 500);
+      window.setTimeout(() => {
+        if (thinkController.signal.aborted) return;
+        setGenerating(false);
+        void streamDraftText(nextText);
+      }, delay);
+      return;
+    }
+
+    if (!canRegenerate) {
+      toast.error("Regeneration limit reached on this plan.");
+      return;
+    }
+    if (!canRequestReview) {
+      toast.error("Review request limit reached on this plan.");
+      return;
+    }
+
+    void generateDraft({ regenerate: true });
+  }, [
+    busy,
+    openingGoogle,
+    submittingPrivate,
+    hasLocalNextOption,
+    draftIndex,
+    drafts,
+    canRegenerate,
+    canRequestReview,
+    generateDraft,
+    streamDraftText,
+  ]);
 
   const copyOnly = useCallback(async () => {
     if (selectedDraft.trim().length < 10) return;
@@ -273,8 +410,6 @@ export function PublicFeedbackForm({
       setSubmittingPrivate(false);
     }
   }, [isLowRating, selectedDraft, feedbackId]);
-
-  const generated = drafts.length > 0;
 
   return (
     <section className="mx-auto max-w-[520px] overflow-hidden rounded-b-[2rem] border-x-8 border-b-8 border-[#15233e] bg-white shadow-[0_22px_70px_rgba(24,44,78,0.12)]">
@@ -397,37 +532,55 @@ export function PublicFeedbackForm({
               <>
                 <div className="mt-7">
                   <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-xl font-extrabold tracking-[-0.05em] text-[#101b32]">AI generated draft</h3>
-                    {generated && canRegenerate ? (
+                    <h3 className="text-xl font-extrabold tracking-[-0.05em] text-[#101b32]">
+                      AI generated draft
+                    </h3>
+                    {generated && canUseRegenerate ? (
                       <button
                         type="button"
-                        onClick={() => generateDraft({ regenerate: true })}
-                        disabled={generating || openingGoogle || submittingPrivate || !canRequestReview}
+                        onClick={() => handleRegenerate()}
+                        disabled={busy || openingGoogle || submittingPrivate}
                         className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-[#b7d0ff] bg-[#eff5ff] px-3 py-1.5 text-xs font-bold text-[#2463f3] transition hover:bg-[#e0ecff] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2463f3]/40"
                         aria-label="Regenerate review draft"
                       >
-                        <RefreshCw className={`h-3.5 w-3.5 ${generating ? "animate-spin" : ""}`} aria-hidden="true" />
-                        {generating ? "Regenerating…" : "Regenerate"}
-                        {typeof regenerationsRemaining === "number" ? (
-                          <span className="text-[10px] font-semibold opacity-70">({regenerationsRemaining} left)</span>
-                        ) : null}
+                        <RefreshCw
+                          className={`h-3.5 w-3.5 ${busy ? "animate-spin" : ""}`}
+                          aria-hidden="true"
+                        />
+                        {busy ? "Regenerating…" : "Regenerate"}
                       </button>
                     ) : null}
-                    {generated && !canRegenerate ? (
+                    {generated && !canUseRegenerate ? (
                       <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-bold text-slate-400">
                         Regeneration limit reached
                       </span>
                     ) : null}
                   </div>
                   
-                  <Textarea
-                    value={selectedDraft}
-                    onChange={(event) => setSelectedDraft(event.target.value)}
-                    readOnly={generating}
-                    placeholder="Your grounded review draft will appear here..."
-                    className="mt-4 min-h-40 rounded-2xl border-[#dbe4ef] bg-[#fbfcfe] text-sm leading-6 shadow-none placeholder:text-[#c1cad6] focus-visible:ring-2"
-                    aria-label="AI generated draft"
-                  />
+                  <div className="relative mt-4">
+                    <Textarea
+                      value={selectedDraft}
+                      onChange={(event) => setSelectedDraft(event.target.value)}
+                      readOnly={busy}
+                      placeholder={
+                        busy
+                          ? "Writing your review…"
+                          : "Your grounded review draft will appear here..."
+                      }
+                      className="min-h-40 rounded-2xl border-[#dbe4ef] bg-[#fbfcfe] text-sm leading-6 shadow-none placeholder:text-[#c1cad6] focus-visible:ring-2"
+                      aria-label="AI generated draft"
+                      aria-busy={busy || undefined}
+                    />
+                    {busy ? (
+                      <span
+                        className="pointer-events-none absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[#2463f3] shadow-sm ring-1 ring-[#dbe8ff]"
+                        aria-hidden="true"
+                      >
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#2463f3]" />
+                        {streaming ? "Writing" : "Thinking"}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className="mt-2 text-xs font-medium text-[#8998ad]">
                     {isLowRating
                       ? "This stays private with the business. It will not open Google."
@@ -444,16 +597,25 @@ export function PublicFeedbackForm({
                         ? "Submit private feedback"
                         : "Open Google review page after copying"
                   }
-                  loading={generating || openingGoogle || submittingPrivate}
-                  loadingLabel={generating ? "Generating..." : submittingPrivate ? "Submitting..." : "Opening Google..."}
+                  loading={busy || openingGoogle || submittingPrivate}
+                  loadingLabel={
+                    busy
+                      ? streaming
+                        ? "Writing..."
+                        : "Generating..."
+                      : submittingPrivate
+                        ? "Submitting..."
+                        : "Opening Google..."
+                  }
                   disabled={
                     !canGenerate ||
+                    busy ||
                     (!generated && !canRequestReview) ||
                     (generated && (selectedDraft.trim().length < 10 || !feedbackId))
                   }
                   onClick={() => {
                     if (!generated) {
-                      generateDraft({ regenerate: false });
+                      void generateDraft({ regenerate: false });
                       return;
                     }
                     if (isLowRating) {
@@ -484,7 +646,7 @@ export function PublicFeedbackForm({
                     variant="ghost"
                     loading={copying}
                     loadingLabel="Copying..."
-                    disabled={selectedDraft.trim().length < 10 || copying}
+                    disabled={selectedDraft.trim().length < 10 || copying || busy}
                     onClick={() => copyOnly()}
                     className="mt-2 h-11 w-full rounded-xl text-sm font-medium"
                   >
