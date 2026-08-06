@@ -210,9 +210,23 @@ export async function POST(request: NextRequest) {
       ? null
       : Math.max(0, requestLimit - (entitlementsBefore.usage.reviewRequests + 1));
 
+  console.info("[review-ai] API response ready", {
+    feedbackId: feedback.id,
+    provider: usage.provider,
+    model: usage.model,
+    draftsCount: usage.drafts.length,
+    usedAi: usage.provider !== "local-fallback",
+    draftPreviews: usage.drafts.map((d) =>
+      d.length > 160 ? `${d.slice(0, 160)}...` : d,
+    ),
+  });
+
   return NextResponse.json({
     feedbackId: feedback.id,
     drafts: usage.drafts,
+    /** Helps clients/debug: "gemini" | "openrouter" | "local-fallback" | … */
+    provider: usage.provider,
+    model: usage.model,
     regenerationsRemaining,
     regenerationsLimit,
     reviewRequestsRemaining,

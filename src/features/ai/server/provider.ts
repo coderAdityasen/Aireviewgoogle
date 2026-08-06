@@ -2,7 +2,6 @@ import {
   REVIEW_SAFETY_PROMPT,
   assertAdminPromptIsSafe,
   buildReviewUserPrompt,
-  demoteAiStyleOpenings,
   getDefaultReviewPromptConfig,
 } from "@/features/ai/server/prompt";
 import {
@@ -100,26 +99,30 @@ export async function generateReviewDraft(input: ReviewGenerationInput) {
       contentChars: content.length,
       inputTokens: completion.inputTokens,
       outputTokens: completion.outputTokens,
+      contentPreview: truncateForLog(content, 400),
     });
 
-    const drafts = parseReviewOptions(content, optionsCount).map((d) =>
-      demoteAiStyleOpenings(d),
-    );
+    const rawParsed = parseReviewOptions(content, optionsCount);
+    console.info("[review-ai] Parsed raw review options", {
+      requestedCount: optionsCount,
+      parsedCount: rawParsed.length,
+      previews: rawParsed.map((d) => truncateForLog(d, 160)),
+    });
+
+    const drafts = rawParsed.map((d) => demoteAiStyleOpenings(d));
     if (!drafts.length) {
       throw new Error("AI provider returned no usable review options.");
     }
-    console.info("[review-ai] Parsed review options", {
-      requestedCount: optionsCount,
-      parsedCount: drafts.length,
-    });
 
     const groundedDrafts = drafts.map((draft, index) => {
       try {
-        return assertDraftGrounded(
-          demoteAiStyleOpenings(draft),
-          sourceText,
-          input.rating,
-        );
+        const grounded = assertDraftGrounded(draft, sourceText, input.rating);
+        console.info("[review-ai] Draft grounded OK", {
+          index,
+          chars: grounded.length,
+          preview: truncateForLog(grounded, 200),
+        });
+        return grounded;
       } catch (error) {
         console.error("[review-ai] Grounding rejected generated draft", {
           index,
@@ -131,10 +134,11 @@ export async function generateReviewDraft(input: ReviewGenerationInput) {
       }
     });
 
-    console.info("[review-ai] Generated grounded review options", {
+    console.info("[review-ai] SUCCESS — using AI-generated reviews", {
       provider: aiConfig.provider,
       model: aiConfig.model,
       draftsCount: groundedDrafts.length,
+      source: "ai",
     });
 
     return {
@@ -159,8 +163,18 @@ export async function generateReviewDraft(input: ReviewGenerationInput) {
       provider: aiConfig.provider,
       model: aiConfig.model,
       reason: getErrorMessage(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      businessName: input.businessName,
+      rating: input.rating,
+      answers: input.answers,
+      notesPreview: truncateForLog(input.notes, 200),
     });
     const drafts = fallbackGroundedDrafts({ ...input, optionsCount });
+    console.warn("[review-ai] FALLBACK drafts (not AI)", {
+      source: "local-fallback",
+      draftsCount: drafts.length,
+      previews: drafts.map((d) => truncateForLog(d, 200)),
+    });
     return {
       drafts: drafts.map((draft) =>
         assertDraftGrounded(draft, sourceText, input.rating),
@@ -370,4 +384,42 @@ function getErrorMessage(error: unknown) {
 
 function truncateForLog(value: string, maxLength: number) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
+}
+
+/**
+ * Soften common AI openers so reviews sound more like phone-typed Google text.
+ * Kept local to this module so builds do not depend on a prompt.ts export.
+ */
+function demoteAiStyleOpenings(draft: string): string {
+  let text = draft.replace(/\s+/g, " ").trim();
+  if (!text) return draft;
+
+  const openers: RegExp[] = [
+    /^really impressed with (the )?[^.!?]{0,40}[.!?]?\s*/i,
+    /^came to [^.!?,]{1,40}[,.]?\s*/i,
+    /^i (absolutely )?loved the [^.!?]{0,30}[.!]?\s*/i,
+    /^the quality of everything was (just )?spot on[^.!?]{0,40}[.!]?\s*/i,
+    /^had an amazing experience( at [^.!?]{0,30})?[.!]?\s*/i,
+    /^absolutely (loved|amazing)[^.!?]{0,40}[.!]?\s*/i,
+    /^you can totally taste[^.!?]{0,50}[.!]?\s*/i,
+    /^i was so happy with my order[.!]?\s*/i,
+  ];
+
+  for (const pattern of openers) {
+    if (pattern.test(text)) {
+      const next = text.replace(pattern, "").trim();
+      if (next.length >= 12) {
+        text = next.charAt(0).toUpperCase() + next.slice(1);
+      }
+      break;
+    }
+  }
+
+  return text
+    .replace(/\bproduct quality\b/gi, "quality")
+    .replace(/\bthe quality of everything\b/gi, "the quality")
+    .replace(/\bjust spot on\b/gi, "really good")
+    .replace(/\byou can totally taste the quality\b/gi, "quality was clear")
+    .replace(/\s{2,}/g, " ")
+    .trim();
 }
