@@ -8,6 +8,10 @@ import {
   getPosterTemplate,
   type PosterTemplateId,
 } from "@/lib/qr/poster-settings";
+import {
+  getPosterLayout,
+  type PosterLayout,
+} from "@/lib/qr/poster-layouts";
 import { BRAND } from "@/config/brand";
 
 export type PosterComposeInput = {
@@ -42,74 +46,64 @@ type Theme = {
 
 const THEMES: Record<PosterTemplateId, Theme> = {
   midnight: {
-    bgTop: "#07111f",
-    bgBottom: "#12306a",
-    card: "#0e1c38",
-    text: "#ffffff",
-    muted: "rgba(255,255,255,0.72)",
-    accent: "#2463f3",
-    accentSoft: "rgba(36,99,243,0.25)",
-    star: "#f5b400",
-    qrFrame: "#ffffff",
-    badge: "#2463f3",
-    footer: "rgba(255,255,255,0.55)",
-    dark: true,
-  },
-  clear: {
-    bgTop: "#eef5ff",
-    bgBottom: "#dbeafe",
+    // Cream + navy/gold reference template — dark text on light center panel
+    bgTop: "#0b1b3a",
+    bgBottom: "#c9a227",
     card: "#ffffff",
-    text: "#0f172a",
-    muted: "rgba(15,23,42,0.62)",
-    accent: "#2463f3",
-    accentSoft: "rgba(36,99,243,0.12)",
-    star: "#f5b400",
-    qrFrame: "#ffffff",
-    badge: "#2463f3",
-    footer: "rgba(15,23,42,0.45)",
-    dark: false,
-  },
-  warm: {
-    bgTop: "#fff7ed",
-    bgBottom: "#fdba74",
-    card: "#fffaf5",
-    text: "#431407",
-    muted: "rgba(67,20,7,0.65)",
-    accent: "#ea580c",
-    accentSoft: "rgba(234,88,12,0.15)",
-    star: "#f59e0b",
-    qrFrame: "#ffffff",
-    badge: "#ea580c",
-    footer: "rgba(67,20,7,0.5)",
-    dark: false,
-  },
-  evergreen: {
-    bgTop: "#052e16",
-    bgBottom: "#065f46",
-    card: "#064e3b",
-    text: "#ecfdf5",
-    muted: "rgba(236,253,245,0.72)",
-    accent: "#10b981",
-    accentSoft: "rgba(16,185,129,0.22)",
-    star: "#fbbf24",
-    qrFrame: "#ffffff",
-    badge: "#059669",
-    footer: "rgba(236,253,245,0.55)",
-    dark: true,
-  },
-  "luxury-gold": {
-    bgTop: "#f7f1e8",
-    bgBottom: "#e8d5b5",
-    card: "#fffdf8",
-    text: "#3d2b1f",
-    muted: "rgba(61,43,31,0.62)",
+    text: "#0b1b3a",
+    muted: "rgba(11,27,58,0.68)",
     accent: "#c9a227",
     accentSoft: "rgba(201,162,39,0.18)",
     star: "#d4af37",
-    qrFrame: "#fffef9",
-    badge: "#ea580c",
-    footer: "rgba(61,43,31,0.5)",
+    qrFrame: "#ffffff",
+    badge: "#0b1b3a",
+    footer: "rgba(11,27,58,0.5)",
     dark: false,
+  },
+  clear: {
+    // Cream + forest green botanical reference template
+    bgTop: "#0f3d2e",
+    bgBottom: "#c9a227",
+    card: "#ffffff",
+    text: "#0f2a1c",
+    muted: "rgba(15,42,28,0.65)",
+    accent: "#0f3d2e",
+    accentSoft: "rgba(15,61,46,0.12)",
+    star: "#d4af37",
+    qrFrame: "#ffffff",
+    badge: "#0f3d2e",
+    footer: "rgba(15,42,28,0.5)",
+    dark: false,
+  },
+  warm: {
+    // Warm gold sunburst reference — dark brown text on peach field
+    bgTop: "#f4b183",
+    bgBottom: "#c45c26",
+    card: "#fbf0e0",
+    text: "#5c2e0a",
+    muted: "rgba(92,46,10,0.7)",
+    accent: "#c9a227",
+    accentSoft: "rgba(201,162,39,0.18)",
+    star: "#d4af37",
+    qrFrame: "#fbf0e0",
+    badge: "#8b4513",
+    footer: "rgba(92,46,10,0.55)",
+    dark: false,
+  },
+  evergreen: {
+    // Deep green botanical reference — light text on dark field
+    bgTop: "#0a3d2e",
+    bgBottom: "#052e16",
+    card: "#0f2e24",
+    text: "#ecfdf5",
+    muted: "rgba(236,253,245,0.78)",
+    accent: "#a8d5a2",
+    accentSoft: "rgba(168,213,162,0.2)",
+    star: "#d4af37",
+    qrFrame: "#ffffff",
+    badge: "#0f3d2e",
+    footer: "rgba(236,253,245,0.6)",
+    dark: true,
   },
 };
 
@@ -360,17 +354,258 @@ function drawImageCover(
   ctx.drawImage(image, x, y, drawW, drawH);
 }
 
+async function drawQrCenterLogo(
+  ctx: CanvasRenderingContext2D,
+  input: PosterComposeInput,
+  cx: number,
+  qrY: number,
+  qrSize: number,
+) {
+  if (!input.logoOverlay || !input.qrLogoUrl) return;
+  try {
+    const mark = await loadImage(input.qrLogoUrl);
+    const markSize = Math.round(qrSize * 0.22);
+    fillRoundRect(
+      ctx,
+      cx - markSize / 2 - 8,
+      qrY + qrSize / 2 - markSize / 2 - 8,
+      markSize + 16,
+      markSize + 16,
+      markSize,
+      "#ffffff",
+    );
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, qrY + qrSize / 2, markSize / 2, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(
+      mark,
+      cx - markSize / 2,
+      qrY + qrSize / 2 - markSize / 2,
+      markSize,
+      markSize,
+    );
+    ctx.restore();
+  } catch {
+    // ignore logo failure
+  }
+}
+
+async function drawLogoAt(
+  ctx: CanvasRenderingContext2D,
+  input: PosterComposeInput,
+  cx: number,
+  logoY: number,
+  width: number,
+  height: number,
+  layout: PosterLayout,
+) {
+  if (!layout.showLogo) return;
+  if (input.brandLogoUrl) {
+    try {
+      const logo = await loadImage(input.brandLogoUrl);
+      const logoH = Math.round(height * layout.logoHeight);
+      const logoW = Math.min(
+        Math.round((logo.width / logo.height) * logoH),
+        Math.round(width * 0.28),
+      );
+      ctx.drawImage(logo, cx - logoW / 2, logoY, logoW, logoH);
+      return;
+    } catch {
+      // fall through to Google logo
+    }
+  }
+  await drawGoogleLogo(ctx, cx, logoY, width, height);
+}
+
+/**
+ * Draw every content layer using absolute positions from poster-layouts.ts.
+ * Edit that file to move logo / text / QR / button independently per template.
+ */
+async function paintLayoutContent(
+  ctx: CanvasRenderingContext2D,
+  input: PosterComposeInput,
+  layout: PosterLayout,
+  theme: Theme,
+  width: number,
+  height: number,
+) {
+  const pageCx = width / 2;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+
+  // Logo
+  await drawLogoAt(
+    ctx,
+    input,
+    pageCx,
+    Math.round(height * layout.logoTop),
+    width,
+    height,
+    layout,
+  );
+
+  // Drawn stars (art templates usually leave this off)
+  if (layout.showStars) {
+    const starSize = Math.max(10, Math.round(width * layout.starsSize));
+    drawStars(
+      ctx,
+      pageCx,
+      Math.round(height * layout.starsTop),
+      5,
+      starSize,
+      theme.star,
+    );
+  }
+
+  // Headline
+  if (layout.showHeadline) {
+    ctx.fillStyle = theme.text;
+    ctx.font = `800 ${Math.round(width * layout.headlineFont)}px system-ui, Segoe UI, Arial, sans-serif`;
+    const headlineLines = wrapText(
+      ctx,
+      input.headline || "Share your experience",
+      width * layout.headlineMaxWidth,
+      layout.headlineMaxLines,
+    );
+    drawCenteredLines(
+      ctx,
+      headlineLines,
+      pageCx,
+      Math.round(height * layout.headlineTop),
+      Math.round(width * layout.headlineFont * 1.15),
+    );
+  }
+
+  // Subtitle
+  if (layout.showSubtitle) {
+    ctx.fillStyle = theme.muted;
+    ctx.font = `600 ${Math.round(width * layout.subtitleFont)}px system-ui, Segoe UI, Arial, sans-serif`;
+    const subLines = wrapText(
+      ctx,
+      input.subtitle || "Scan to share your genuine visit",
+      width * layout.subtitleMaxWidth,
+      layout.subtitleMaxLines,
+    );
+    drawCenteredLines(
+      ctx,
+      subLines,
+      pageCx,
+      Math.round(height * layout.subtitleTop),
+      Math.round(width * layout.subtitleFont * 1.25),
+    );
+  }
+
+  // QR
+  const qrSize = Math.round(width * layout.qr.size);
+  const qrCx = width * layout.qr.cx;
+  const qrCy = height * layout.qr.cy;
+  const qrX = qrCx - qrSize / 2;
+  const qrY = qrCy - qrSize / 2;
+
+  if (layout.drawQrFrame) {
+    const outer = Math.round(qrSize * layout.qrFramePadding);
+    const frameX = qrCx - outer / 2;
+    const frameY = qrCy - outer / 2;
+    ctx.save();
+    ctx.shadowColor = "rgba(0,0,0,0.22)";
+    ctx.shadowBlur = 28;
+    ctx.shadowOffsetY = 12;
+    fillRoundRect(ctx, frameX, frameY, outer, outer, 28, theme.qrFrame);
+    ctx.restore();
+    ctx.strokeStyle = theme.accent;
+    ctx.lineWidth = 6;
+    roundRect(ctx, frameX + 3, frameY + 3, outer - 6, outer - 6, 24);
+    ctx.stroke();
+  } else {
+    // Soft pad so modules stay scannable over designed art
+    fillRoundRect(ctx, qrX - 6, qrY - 6, qrSize + 12, qrSize + 12, 16, "#ffffff");
+  }
+
+  const qrImage = await loadImage(input.qrDataUrl);
+  ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+  await drawQrCenterLogo(ctx, input, qrCx, qrY, qrSize);
+
+  // SCAN ME
+  if (layout.showScanButton) {
+    const btnW = Math.round(width * layout.scanButtonWidth);
+    const btnH = Math.round(height * layout.scanButtonHeight);
+    const btnY = Math.round(height * layout.scanButtonTop);
+    fillRoundRect(ctx, pageCx - btnW / 2, btnY, btnW, btnH, btnH / 2, theme.badge);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `800 ${Math.round(width * 0.028)}px system-ui, Segoe UI, Arial, sans-serif`;
+    ctx.textBaseline = "middle";
+    ctx.fillText("SCAN ME", pageCx, btnY + btnH / 2);
+    ctx.textBaseline = "top";
+  }
+
+  // Brand strip
+  if (layout.showBrandStrip) {
+    const stripW = width * layout.brandStripWidth;
+    const stripX = pageCx - stripW / 2;
+    const stripY = Math.round(height * layout.brandStripTop);
+    const stripeColors = ["#2463f3", "#f5b400", "#10b981"];
+    const stripePart = stripW / stripeColors.length;
+    stripeColors.forEach((color, index) => {
+      ctx.fillStyle = color;
+      ctx.fillRect(stripX + index * stripePart, stripY, stripePart + 1, 5);
+    });
+  }
+
+  // Footer
+  if (layout.showFooter) {
+    ctx.fillStyle = theme.footer;
+    ctx.font = `600 ${Math.round(width * layout.footerFont)}px system-ui, Segoe UI, Arial, sans-serif`;
+    ctx.textBaseline = "top";
+    ctx.fillText(
+      `${BRAND.poweredBy} · ${BRAND.poweredByUrl.replace(/^https?:\/\//, "")}`,
+      pageCx,
+      Math.round(height * layout.footerTop),
+    );
+  }
+
+  // Business display name
+  if (layout.showBusinessName) {
+    const name =
+      input.displayName?.trim() || input.campaignName?.trim() || "";
+    if (name) {
+      ctx.fillStyle = theme.muted;
+      ctx.font = `700 ${Math.round(width * layout.businessNameFont)}px system-ui, Segoe UI, Arial, sans-serif`;
+      ctx.textBaseline = "top";
+      ctx.fillText(
+        name.slice(0, 48),
+        pageCx,
+        Math.round(height * layout.businessNameTop),
+      );
+    }
+  }
+}
+
 /**
  * Compose a full poster PNG as a data URL.
- * Uses designed template background images from /public/poster-templates.
+ * Per-template positions live in `src/lib/qr/poster-layouts.ts` — edit there.
  */
 export async function composePosterPng(
   input: PosterComposeInput,
 ): Promise<string> {
-  const width = input.width ?? 1080;
-  const height = input.height ?? 1440;
   const theme = THEMES[input.template] ?? THEMES.midnight;
   const templateMeta = getPosterTemplate(input.template);
+  const layout = getPosterLayout(input.template);
+
+  let bgImage: HTMLImageElement | null = null;
+  try {
+    bgImage = await loadImage(templateMeta.backgroundImage);
+  } catch {
+    bgImage = null;
+  }
+
+  // Art mode matches the PNG aspect ratio so slot fractions land on the design.
+  const width = input.width ?? 1080;
+  const height =
+    input.height ??
+    (layout.mode === "art" && bgImage
+      ? Math.round(width * (bgImage.height / Math.max(bgImage.width, 1)))
+      : 1440);
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -378,200 +613,33 @@ export async function composePosterPng(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas is not available in this browser.");
 
-  // Designed template background image (fallback: gradient + decor)
-  let usedBackgroundImage = false;
-  try {
-    const bgImage = await loadImage(templateMeta.backgroundImage);
-    drawImageCover(ctx, bgImage, width, height);
-    usedBackgroundImage = true;
-  } catch {
+  if (bgImage) {
+    if (layout.mode === "art") {
+      // Full-bleed, no crop — preserves calibrated art geometry
+      ctx.drawImage(bgImage, 0, 0, width, height);
+    } else {
+      drawImageCover(ctx, bgImage, width, height);
+    }
+  } else {
     const bg = ctx.createLinearGradient(0, 0, width * 0.2, height);
     bg.addColorStop(0, theme.bgTop);
     bg.addColorStop(1, theme.bgBottom);
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, width, height);
     drawDecor(ctx, width, height, theme);
+    const pad = Math.round(width * 0.07);
+    fillRoundRect(
+      ctx,
+      pad,
+      pad,
+      width - pad * 2,
+      height - pad * 2,
+      36,
+      theme.card,
+    );
   }
 
-  // Content area — slightly tighter when art already provides a framed panel
-  const pad = Math.round(width * (usedBackgroundImage ? 0.11 : 0.07));
-  const cardX = pad;
-  const cardY = pad;
-  const cardW = width - pad * 2;
-  const cardH = height - pad * 2;
-
-  if (!usedBackgroundImage) {
-    fillRoundRect(ctx, cardX, cardY, cardW, cardH, 36, theme.card);
-    ctx.strokeStyle = theme.dark
-      ? "rgba(255,255,255,0.08)"
-      : "rgba(15,23,42,0.06)";
-    ctx.lineWidth = 2;
-    roundRect(ctx, cardX + 2, cardY + 2, cardW - 4, cardH - 4, 34);
-    ctx.stroke();
-  }
-
-  const cx = width / 2;
-  let y = cardY + Math.round(height * (usedBackgroundImage ? 0.05 : 0.06));
-
-  // Business brand logo when set; otherwise real Google logo
-  if (input.brandLogoUrl) {
-    try {
-      const logo = await loadImage(input.brandLogoUrl);
-      const logoH = Math.round(height * 0.055);
-      const logoW = Math.min(
-        Math.round((logo.width / logo.height) * logoH),
-        Math.round(width * 0.28),
-      );
-      ctx.drawImage(logo, cx - logoW / 2, y, logoW, logoH);
-      y += logoH + Math.round(height * 0.018);
-    } catch {
-      y = await drawGoogleLogo(ctx, cx, y, width, height);
-    }
-  } else {
-    y = await drawGoogleLogo(ctx, cx, y, width, height);
-  }
-
-  // Stars
-  drawStars(ctx, cx, y + 10, 5, 22, theme.star);
-  y += 42;
-
-  // Headline
-  ctx.fillStyle = theme.text;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  ctx.font = `800 ${Math.round(width * 0.048)}px system-ui, Segoe UI, Arial, sans-serif`;
-  const headlineLines = wrapText(
-    ctx,
-    input.headline || "Share your experience",
-    cardW * 0.82,
-    3,
-  );
-  const headlineH = drawCenteredLines(
-    ctx,
-    headlineLines,
-    cx,
-    y,
-    Math.round(width * 0.055),
-  );
-  y += headlineH + Math.round(height * 0.012);
-
-  // Subtitle
-  ctx.fillStyle = theme.muted;
-  ctx.font = `600 ${Math.round(width * 0.028)}px system-ui, Segoe UI, Arial, sans-serif`;
-  const subLines = wrapText(
-    ctx,
-    input.subtitle || "Scan to share your genuine visit",
-    cardW * 0.8,
-    2,
-  );
-  const subH = drawCenteredLines(
-    ctx,
-    subLines,
-    cx,
-    y,
-    Math.round(width * 0.036),
-  );
-  y += subH + Math.round(height * 0.03);
-
-  // QR frame + code
-  const qrOuter = Math.round(width * 0.46);
-  const qrInner = Math.round(qrOuter * 0.86);
-  const qrFrameX = cx - qrOuter / 2;
-  const qrFrameY = y;
-
-  // Shadow
-  ctx.save();
-  ctx.shadowColor = "rgba(0,0,0,0.22)";
-  ctx.shadowBlur = 28;
-  ctx.shadowOffsetY = 12;
-  fillRoundRect(ctx, qrFrameX, qrFrameY, qrOuter, qrOuter, 28, theme.qrFrame);
-  ctx.restore();
-
-  // Accent border
-  ctx.strokeStyle = theme.accent;
-  ctx.lineWidth = 6;
-  roundRect(ctx, qrFrameX + 3, qrFrameY + 3, qrOuter - 6, qrOuter - 6, 24);
-  ctx.stroke();
-
-  const qrImage = await loadImage(input.qrDataUrl);
-  const qrX = cx - qrInner / 2;
-  const qrY = qrFrameY + (qrOuter - qrInner) / 2;
-  ctx.drawImage(qrImage, qrX, qrY, qrInner, qrInner);
-
-  // Optional center logo on QR
-  if (input.logoOverlay && input.qrLogoUrl) {
-    try {
-      const mark = await loadImage(input.qrLogoUrl);
-      const markSize = Math.round(qrInner * 0.22);
-      fillRoundRect(
-        ctx,
-        cx - markSize / 2 - 8,
-        qrY + qrInner / 2 - markSize / 2 - 8,
-        markSize + 16,
-        markSize + 16,
-        markSize,
-        "#ffffff",
-      );
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx, qrY + qrInner / 2, markSize / 2, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.drawImage(
-        mark,
-        cx - markSize / 2,
-        qrY + qrInner / 2 - markSize / 2,
-        markSize,
-        markSize,
-      );
-      ctx.restore();
-    } catch {
-      // ignore logo failure
-    }
-  }
-
-  y = qrFrameY + qrOuter + Math.round(height * 0.035);
-
-  // CTA button
-  const btnW = Math.round(width * 0.42);
-  const btnH = Math.round(height * 0.055);
-  fillRoundRect(ctx, cx - btnW / 2, y, btnW, btnH, btnH / 2, theme.badge);
-  ctx.fillStyle = "#ffffff";
-  ctx.font = `800 ${Math.round(width * 0.028)}px system-ui, Segoe UI, Arial, sans-serif`;
-  ctx.textBaseline = "middle";
-  ctx.fillText("SCAN ME", cx, y + btnH / 2);
-  ctx.textBaseline = "top";
-  y += btnH + Math.round(height * 0.035);
-
-  // Brand strip
-  const stripY = cardY + cardH - Math.round(height * 0.07);
-  const stripW = cardW * 0.55;
-  const stripX = cx - stripW / 2;
-  const stripeColors = ["#2463f3", "#f5b400", "#10b981"];
-  const stripeH = 5;
-  const stripePart = stripW / stripeColors.length;
-  stripeColors.forEach((color, index) => {
-    ctx.fillStyle = color;
-    ctx.fillRect(stripX + index * stripePart, stripY, stripePart + 1, stripeH);
-  });
-
-  // Footer
-  ctx.fillStyle = theme.footer;
-  ctx.font = `600 ${Math.round(width * 0.02)}px system-ui, Segoe UI, Arial, sans-serif`;
-  ctx.textBaseline = "top";
-  const footer =
-    input.displayName?.trim() ||
-    input.campaignName?.trim() ||
-    BRAND.poweredByCompany;
-  // Canvas can't be a hyperlink; show company + URL as plain text on print posters.
-  ctx.fillText(
-    `${BRAND.poweredBy} · ${BRAND.poweredByUrl.replace(/^https?:\/\//, "")}`,
-    cx,
-    stripY + 14,
-  );
-  if (footer && footer !== BRAND.poweredByCompany) {
-    ctx.fillText(footer.slice(0, 48), cx, stripY + 28);
-  }
-
+  await paintLayoutContent(ctx, input, layout, theme, width, height);
   return canvas.toDataURL("image/png");
 }
 
